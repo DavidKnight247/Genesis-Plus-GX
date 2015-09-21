@@ -1,8 +1,11 @@
-/***************************************************************************************
- *  Genesis Plus
- *  XE-1AP analog controller support
+/*
+ *  fileio.c
  *
- *  Copyright (C) 2011-2015  Eke-Eke (Genesis Plus GX)
+ *  Load a normal file, or ZIP/GZ archive.
+ *  Returns loaded ROM size (zero if an error occured)
+ *
+ *  Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003  Charles Mac Donald
+ *  modified by Eke-Eke (Genesis Plus GX)
  *
  *  Redistribution and use of this code or any derivative works are permitted
  *  provided that the following conditions are met:
@@ -36,14 +39,10 @@
  *
  ****************************************************************************************/
 
-#ifndef _XE_1APH_
-#define _XE_1APH_
+#ifndef _FILEIO_H_
+#define _FILEIO_H_
 
 /* Function prototypes */
-extern void xe_1ap_reset(int index);
-extern unsigned char xe_1ap_1_read(void);
-extern unsigned char xe_1ap_2_read(void);
-extern void xe_1ap_1_write(unsigned char data, unsigned char mask);
-extern void xe_1ap_2_write(unsigned char data, unsigned char mask);
+extern int load_archive(char *filename, unsigned char *buffer, int maxsize, char *extension);
 
-#endif
+#endif /* _FILEIO_H_ */
