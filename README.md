@@ -1,3 +1,7 @@
+This is a tweaked version of Genesis Plus GX forked from ekeeke for the GCW Zero handheld console.
+
+Original readme follows:
+
 Genesis Plus GX is an open-source Sega 8/16 bit emulator focused on accuracy and portability. Initially ported and developped on Gamecube / Wii consoles through [libogc / devkitPPC](http://sourceforge.net/projects/devkitpro/), this emulator is now available on many other platforms through various frontends such as:
 
 * [Retroarch (libretro)](http://www.libretro.com)
