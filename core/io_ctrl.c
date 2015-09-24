@@ -45,10 +45,12 @@
 #include "mouse.h"
 #include "activator.h"
 #include "xe_1ap.h"
+#ifndef GCWZERO
 #include "teamplayer.h"
 #include "paddle.h"
 #include "sportspad.h"
 #include "graphic_board.h"
+#endif
 
 uint8 io_reg[0x10];
 
@@ -87,7 +89,7 @@ void io_init(void)
       port[0].data_r = gamepad_1_read;
       break;
     }
-
+#ifndef GCWZERO
     case SYSTEM_MOUSE:
     {
       port[0].data_w = mouse_write;
@@ -129,14 +131,14 @@ void io_init(void)
       port[0].data_r = mastertap_1_read;
       break;
     }
-
+#endif
     case SYSTEM_LIGHTPHASER:
     {
       port[0].data_w = dummy_write;
       port[0].data_r = phaser_1_read;
       break;
     }
-
+#ifndef GCWZERO
     case SYSTEM_PADDLE:
     {
       port[0].data_w = paddle_1_write;
@@ -157,7 +159,7 @@ void io_init(void)
       port[0].data_r = graphic_board_read;
       break;
     }
-
+#endif
     default:
     {
       port[0].data_w = dummy_write;
@@ -175,6 +177,7 @@ void io_init(void)
       break;
     }
 
+#ifndef GCWZERO
     case SYSTEM_MOUSE:
     {
       port[1].data_w = mouse_write;
@@ -195,7 +198,7 @@ void io_init(void)
       port[1].data_r = activator_2_read;
       break;
     }
-
+#endif
     case SYSTEM_MENACER:
     {
       port[1].data_w = dummy_write;
@@ -217,6 +220,7 @@ void io_init(void)
       break;
     }
 
+#ifndef GCWZERO
     case SYSTEM_TEAMPLAYER:
     {
       port[1].data_w = teamplayer_2_write;
@@ -230,6 +234,7 @@ void io_init(void)
       port[1].data_r = mastertap_2_read;
       break;
     }
+#endif
 
     case SYSTEM_LIGHTPHASER:
     {
@@ -238,6 +243,7 @@ void io_init(void)
       break;
     }
 
+#ifndef GCWZERO
     case SYSTEM_PADDLE:
     {
       port[1].data_w = paddle_2_write;
@@ -258,7 +264,7 @@ void io_init(void)
       port[1].data_r = graphic_board_read;
       break;
     }
-
+#endif
     default:
     {
       port[1].data_w = dummy_write;

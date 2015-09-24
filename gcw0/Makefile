@@ -18,36 +18,38 @@
 # -D16BPP_RENDERING - configure for 16-bit pixels (RGB565)
 # -D32BPP_RENDERING - configure for 32-bit pixels (RGB888)
 
-NAME	  = gen_gcw0
-SDL-CONFIG = /opt/gcw0-toolchain/usr/mipsel-gcw0-linux-uclibc/sysroot/usr/bin/sdl-config
+NAME  = gen_gcw0
+SDLCONFIG = /opt/gcw0-toolchain/usr/mipsel-gcw0-linux-uclibc/sysroot/usr/bin/sdl-config
 
 CC        = /opt/gcw0-toolchain/usr/bin/mipsel-gcw0-linux-uclibc-gcc
-#CFLAGS    = `$(SDL-CONFIG) --cflags` -03 -fomit-frame-pointer -Wall  -ansi -std=c99  
-#CFLAGS    = `sdl-config --cflags` -O6 -fomit-frame-pointer -Wall -Wno-strict-aliasing -ansi -std=c99
-CFLAGS    = `$(SDL-CONFIG) --cflags` -O3 -fomit-frame-pointer -Wall  -ansi -std=c99 -march=mips32 -mtune=mips32r2 -mhard-float
-#-fomit-frame-pointer
-#LDFLAGS   = -g
-DEFINES   = -DLSB_FIRST -DUSE_16BPP_RENDERING -DUSE_LIBVORBIS -DGCWZERO -DALIGN_LONG -DALT_RENDERER
+LDFLAGS   = 
+
+### DEBUG ###
+# CFLAGS  = `$(SDLCONFIG) --cflags` -g -fomit-frame-pointer -Wall  -ansi -std=c99 -march=mips32r2 -funroll-loops -ffast-math --param large-function-growth=1600 --param inline-unit-growth=400
+
+### RELEASE ###
+CFLAGS    = `$(SDLCONFIG) --cflags` -O3 -fomit-frame-pointer -Wall  -ansi -std=c99 -march=mips32r2 -funroll-loops -ffast-math --param large-function-growth=1600 --param inline-unit-growth=400
+
+DEFINES   = -DLSB_FIRST -DUSE_16BPP_RENDERING -DUSE_LIBVORBIS -DGCWZERO -DALIGN_LONG -DALT_RENDERER #-DSDL2
 
 SRCDIR    = ../core
-INCLUDES  =     -I$(SRCDIR) -I$(SRCDIR)/z80 -I$(SRCDIR)/m68k \
-		-I$(SRCDIR)/sound -I$(SRCDIR)/input_hw -I$(SRCDIR)/cart_hw -I$(SRCDIR)/cart_hw/svp \
+INCLUDES  =	-I/opt/gcw0-toolchain/usr/mipsel-gcw0-linux-uclibc/sysroot/usr/include/ \
+		-I$(SRCDIR) -I$(SRCDIR)/z80 -I$(SRCDIR)/m68k \
+		-I$(SRCDIR)/sound -I$(SRCDIR)/input_hw \
+		-I$(SRCDIR)/cart_hw -I$(SRCDIR)/cart_hw/svp \
 		-I$(SRCDIR)/cd_hw -I$(SRCDIR)/ntsc \
-		-I$(SRCDIR)/../gcw0 \
--I/opt/gcw0-toolchain/usr/mipsel-gcw0-linux-uclibc/sysroot/usr/include/
-#		-I$(SRCDIR)/tremor 
+		-I$(SRCDIR)/../gcw0 
 
-LIBS	  = `$(SDL-CONFIG) --libs --libs` -lz -lm -lSDL_ttf -lSDL_image \
--L/opt/gcw0-toolchain/usr/mipsel-gcw0-linux-uclibc/sysroot/usr/lib -lvorbisfile
+LIBS      = `$(SDLCONFIG) --libs` -lz -lm -lSDL_ttf -lSDL_image -lvorbisfile 
 
-OBJDIR = ./build_gcw0
+OBJDIR    = ./build_gcw0
 
-OBJECTS	=       $(OBJDIR)/z80.o	
+OBJECTS	  =     $(OBJDIR)/z80.o	
 
-OBJECTS	+=     	$(OBJDIR)/m68kcpu.o \
+OBJECTS	 +=    	$(OBJDIR)/m68kcpu.o \
 		$(OBJDIR)/s68kcpu.o
 
-OBJECTS	+=     	$(OBJDIR)/genesis.o	 \
+OBJECTS	 +=    	$(OBJDIR)/genesis.o	 \
 		$(OBJDIR)/vdp_ctrl.o	 \
 		$(OBJDIR)/vdp_render.o   \
 		$(OBJDIR)/system.o       \
@@ -58,28 +60,28 @@ OBJECTS	+=     	$(OBJDIR)/genesis.o	 \
 		$(OBJDIR)/state.o        \
 		$(OBJDIR)/loadrom.o	
 
-OBJECTS	+=      $(OBJDIR)/input.o	  \
+OBJECTS	 +=     $(OBJDIR)/input.o	  \
 		$(OBJDIR)/gamepad.o	  \
 		$(OBJDIR)/lightgun.o	  \
-		$(OBJDIR)/mouse.o	  \
-		$(OBJDIR)/activator.o	  \
-		$(OBJDIR)/xe_1ap.o	  \
-		$(OBJDIR)/teamplayer.o    \
-		$(OBJDIR)/paddle.o	  \
-		$(OBJDIR)/sportspad.o     \
-		$(OBJDIR)/terebi_oekaki.o \
+#		$(OBJDIR)/mouse.o	  \
+#		$(OBJDIR)/activator.o	  \
+#		$(OBJDIR)/xe_1ap.o	  \
+#		$(OBJDIR)/teamplayer.o    \
+#		$(OBJDIR)/paddle.o	  \
+#		$(OBJDIR)/sportspad.o     \
+#		$(OBJDIR)/terebi_oekaki.o \
 		$(OBJDIR)/graphic_board.o
 
-OBJECTS	+=      $(OBJDIR)/sound.o	\
+OBJECTS	 +=     $(OBJDIR)/sound.o	\
 		$(OBJDIR)/sn76489.o     \
 		$(OBJDIR)/ym2413.o      \
 		$(OBJDIR)/ym2612.o    
 
-OBJECTS	+=	$(OBJDIR)/blip_buf.o 
+OBJECTS  +=	$(OBJDIR)/blip_buf.o 
 
-OBJECTS	+=	$(OBJDIR)/eq.o 
+OBJECTS	 +=     $(OBJDIR)/eq.o 
 
-OBJECTS	+=      $(OBJDIR)/sram.o        \
+OBJECTS	 +=     $(OBJDIR)/sram.o        \
 		$(OBJDIR)/svp.o	        \
 		$(OBJDIR)/ssp16.o       \
 		$(OBJDIR)/ggenie.o      \
@@ -105,8 +107,7 @@ OBJECTS	+=	$(OBJDIR)/main.o	\
 		$(OBJDIR)/error.o	\
 		$(OBJDIR)/unzip.o       \
 		$(OBJDIR)/fileio.o	\
-		$(OBJDIR)/utils.o       #\
-#		$(OBJDIR)/menu.o	
+		$(OBJDIR)/utils.o       
 
 #OBJECTS	+=	$(OBJDIR)/block.o      \
 #		$(OBJDIR)/codebook.o   \
@@ -121,14 +122,13 @@ OBJECTS	+=	$(OBJDIR)/main.o	\
 #		$(OBJDIR)/sharedbook.o \
 #		$(OBJDIR)/synthesis.o  \
 #		$(OBJDIR)/vorbisfile.o \
-#		$(OBJDIR)/window.o
-## 1st		$(OBJDIR)/bitwise.o    \
-
-
+#		$(OBJDIR)/window.o     \
+#		$(OBJDIR)/bitwise.o    
 all: $(NAME)
 
 $(NAME): $(OBJDIR) $(OBJECTS)
-		$(CC) $(LDFLAGS) $(OBJECTS) $(LIBS) -o $@
+#		$(CC) $(LDFLAGS) $(LIBS) $(OBJECTS)  -o $@
+		$(CC) `$(SDLCONFIG) --libs` -lz -lm -lSDL_ttf -lSDL_image -lvorbisfile $(OBJECTS)  -o $@
 
 $(OBJDIR) :
 		@[ -d $@ ] || mkdir -p $@
@@ -165,7 +165,7 @@ $(OBJDIR)/%.o :	$(SRCDIR)/ntsc/%.c $(SRCDIR)/ntsc/%.h
 
 #$(OBJDIR)/%.o :	$(SRCDIR)/tremor/%.c $(SRCDIR)/tremor/%.h	        
 #		$(CC) -c $(CFLAGS) $(INCLUDES) $(DEFINES) $< -o $@
-     
+#     
 #$(OBJDIR)/%.o :	$(SRCDIR)/tremor/%.c 	        
 #		$(CC) -c $(CFLAGS) $(INCLUDES) $(DEFINES) $< -o $@
 
@@ -174,7 +174,7 @@ $(OBJDIR)/%.o :	$(SRCDIR)/../gcw0/%.c $(SRCDIR)/../gcw0/%.h
 
 
 pack	:
-		strip $(NAME)
+		mipsel-linux-strip $(NAME)
 		upx -9 $(NAME)	        
 
 clean:

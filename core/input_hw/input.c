@@ -92,6 +92,33 @@ void input_init(void)
 
   switch (input.system[0])
   {
+#ifdef GCWZERO
+    case SYSTEM_MENACER:
+    {
+      input.dev[4] = DEVICE_LIGHTGUN;
+      player++;
+      break;
+    }
+
+    case SYSTEM_JUSTIFIER:
+    {
+      for (i=4; i<6; i++)
+      {
+        if (player < MAX_INPUTS)
+        {
+          input.dev[4] = DEVICE_LIGHTGUN;
+          player++;
+        }
+      }
+      break;
+    }
+    case SYSTEM_LIGHTPHASER:
+    {
+      input.dev[0] = DEVICE_LIGHTGUN;
+      player++;
+      break;
+    }
+#endif
     case SYSTEM_GAMEPAD:
     {
       /* 2-buttons, 3-buttons or 6-buttons control pad */
@@ -120,7 +147,7 @@ void input_init(void)
       player++;
       break;
     }
-
+#ifndef GCWZERO
     case SYSTEM_XE_1AP:
     {
       input.dev[0] = DEVICE_XE_1AP;
@@ -190,7 +217,6 @@ void input_init(void)
       player++;
       break;
     }
-
     case SYSTEM_PADDLE:
     {
       input.dev[0] = DEVICE_PADDLE;
@@ -211,6 +237,7 @@ void input_init(void)
       player++;
       break;
     }
+#endif
   }
 
   if (player == MAX_INPUTS)
@@ -268,13 +295,18 @@ void input_init(void)
       {
         if (player < MAX_INPUTS)
         {
+#ifdef GCWZERO
+          input.dev[4] = DEVICE_LIGHTGUN;
+#else
           input.dev[i] = DEVICE_LIGHTGUN;
+#endif
           player++;
         }
       }
       break;
     }
 
+#ifndef GCWZERO
     case SYSTEM_TEAMPLAYER:
     {
       for (i=4; i<8; i++)
@@ -309,6 +341,7 @@ void input_init(void)
       }
       break;
     }
+#endif
 
     case SYSTEM_LIGHTPHASER:
     {
@@ -317,6 +350,7 @@ void input_init(void)
       break;
     }
 
+#ifndef GCWZERO
     case SYSTEM_PADDLE:
     {
       input.dev[4] = DEVICE_PADDLE;
@@ -337,6 +371,7 @@ void input_init(void)
       player++;
       break;
     }
+#endif
   }
 
   /* J-CART */
@@ -383,7 +418,7 @@ void input_reset(void)
         lightgun_reset(i);
         break;
       }
-
+#ifndef GCWZERO
       case DEVICE_MOUSE:
       {
         mouse_reset(i);
@@ -425,7 +460,7 @@ void input_reset(void)
         graphic_board_reset(i);
         break;
       }
-
+#endif
       default:
       {
         break;
@@ -433,7 +468,8 @@ void input_reset(void)
     }
   }
 
-  /* Team Player */
+#ifndef GCWZERO
+ /* Team Player */
   for (i=0; i<2; i++)
   {
     if (input.system[i] == SYSTEM_TEAMPLAYER)
@@ -441,6 +477,7 @@ void input_reset(void)
       teamplayer_reset(i);
     }
   }
+#endif
 }
 
 void input_refresh(void)

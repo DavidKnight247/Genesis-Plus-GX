@@ -663,6 +663,24 @@ static void make_bp_lut(void)
   for(j = 0; j < 0x100; j++)
   {
     out = 0;
+#ifdef GCWZERO
+      out |= (j & (0x80 >> 0)) ? (uint32)(8 << (0 << 2)) : 0;
+      out |= (i & (0x80 >> 0)) ? (uint32)(4 << (0 << 2)) : 0;
+      out |= (j & (0x80 >> 1)) ? (uint32)(8 << (1 << 2)) : 0;
+      out |= (i & (0x80 >> 1)) ? (uint32)(4 << (1 << 2)) : 0;
+      out |= (j & (0x80 >> 2)) ? (uint32)(8 << (2 << 2)) : 0;
+      out |= (i & (0x80 >> 2)) ? (uint32)(4 << (2 << 2)) : 0;
+      out |= (j & (0x80 >> 3)) ? (uint32)(8 << (3 << 2)) : 0;
+      out |= (i & (0x80 >> 3)) ? (uint32)(4 << (3 << 2)) : 0;
+      out |= (j & (0x80 >> 4)) ? (uint32)(8 << (4 << 2)) : 0;
+      out |= (i & (0x80 >> 4)) ? (uint32)(4 << (4 << 2)) : 0;
+      out |= (j & (0x80 >> 5)) ? (uint32)(8 << (5 << 2)) : 0;
+      out |= (i & (0x80 >> 5)) ? (uint32)(4 << (5 << 2)) : 0;
+      out |= (j & (0x80 >> 6)) ? (uint32)(8 << (6 << 2)) : 0;
+      out |= (i & (0x80 >> 6)) ? (uint32)(4 << (6 << 2)) : 0;
+      out |= (j & (0x80 >> 7)) ? (uint32)(8 << (7 << 2)) : 0;
+      out |= (i & (0x80 >> 7)) ? (uint32)(4 << (7 << 2)) : 0;
+#else
     for(x = 0; x < 8; x++)
     {
       /* pixel line data = hh00gg00ff00ee00dd00cc00bb00aa00 (32-bit) */
@@ -670,6 +688,7 @@ static void make_bp_lut(void)
       out |= (j & (0x80 >> x)) ? (uint32)(8 << (x << 2)) : 0;
       out |= (i & (0x80 >> x)) ? (uint32)(4 << (x << 2)) : 0;
     }
+#endif
 
     /* i = low byte in VRAM  (bp0 or bp2) */
     /* j = high byte in VRAM (bp1 or bp3) */
@@ -4116,8 +4135,14 @@ void render_line(int line)
       if (system_hw > SYSTEM_SGII)
       {
         memset(&linebuf[0][0x20], 0x40, 8);
+#ifdef GCWZERO
+        config.smsmaskleftbar = 1;
+#endif
       }
     }
+#ifdef GCWZERO
+    else config.smsmaskleftbar = 0;
+#endif
 
     /* Parse sprites for next line */
     if (line < (bitmap.viewport.h - 1))
@@ -4198,6 +4223,22 @@ void remap_line(int line)
 #ifdef CUSTOM_BLITTER
     CUSTOM_BLITTER(line, width, pixel, src)
 #else
+#ifdef GCWZERO
+    PIXEL_OUT_T *dst = ((PIXEL_OUT_T *)&bitmap.data[(line * bitmap.pitch)]);
+    do
+    {
+      *dst++ = pixel[*src++];
+      *dst++ = pixel[*src++];
+      *dst++ = pixel[*src++];
+      *dst++ = pixel[*src++];
+      *dst++ = pixel[*src++];
+      *dst++ = pixel[*src++];
+      *dst++ = pixel[*src++];
+      *dst++ = pixel[*src++];
+    }
+    while (width-=8);
+
+#else
     /* Convert VDP pixel data to output pixel format */
     PIXEL_OUT_T *dst = ((PIXEL_OUT_T *)&bitmap.data[(line * bitmap.pitch)]);
     if (config.lcd)
@@ -4216,6 +4257,7 @@ void remap_line(int line)
       }
       while (--width);
     }
- #endif
+#endif //gcwzero
+#endif
   }
 }

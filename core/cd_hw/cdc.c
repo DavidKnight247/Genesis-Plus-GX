@@ -64,7 +64,12 @@
 #define BIT_VALST   0x80
 
 /* TODO: figure exact DMA transfer rate */
+#ifdef GCW_ZERO
+//gcw0 testing
+#define DMA_BYTES_PER_LINE 4196*4
+#else
 #define DMA_BYTES_PER_LINE 512
+#endif
 
 void cdc_init(void)
 {

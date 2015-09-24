@@ -62,7 +62,12 @@
 #define MCLOCK_PAL  53203424
 
 /* Number of M-Cycles executed per line */
+#ifdef GCWZERO
+extern int gcwzero_cycles;
+#define MCYCLES_PER_LINE  gcwzero_cycles
+#else
 #define MCYCLES_PER_LINE  3420
+#endif
 
 /* Horizontal timing offsets when running in Z80 mode */
 #define SMS_CYCLE_OFFSET  530 
@@ -99,7 +104,9 @@ typedef struct
 extern t_bitmap bitmap;
 extern t_snd snd;
 extern uint32 mcycles_vdp;
+#ifndef GCWZERO
 extern int16 SVP_cycles; 
+#endif
 extern uint8 system_hw;
 extern uint8 system_bios;
 extern uint32 system_clock;

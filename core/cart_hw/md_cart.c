@@ -46,6 +46,12 @@
 #include "eeprom_spi.h"
 #include "gamepad.h"
 
+#ifdef GCWZERO
+//Tom clown won't start if Lock-on is enabled
+//Virtua racing is corrupted if gam genie starts
+static int turn_off_lock_on;
+#endif
+
 /* Cart database entry */
 typedef struct
 {
@@ -391,6 +397,9 @@ void md_cart_init(void)
   svp = NULL;
   if (strstr(rominfo.international,"Virtua Racing"))
   {
+#ifdef GCWZERO
+    turn_off_lock_on = 1;
+#endif
     svp_init();
 
     m68k.memory_map[0x30].base    = svp->dram;
@@ -437,10 +446,54 @@ void md_cart_init(void)
     }
   }
 
+#ifdef GCWZERO
+  memset(&cart.hw, 0, sizeof(cart.hw));
+
+  /* search for game into database */
+  for (i=0; i<(sizeof(rom_database)/sizeof(md_entry_t)); i++)
+  {
+    /* known cart found ! */
+    if ((rominfo.checksum == rom_database[i].chk_1) &&
+        (rominfo.realchecksum == rom_database[i].chk_2))
+    {
+#ifdef GCWZERO
+      turn_off_lock_on = 1;
+#endif
+      int j = rom_database[i].bank_start;
+
+      /* retrieve hardware information */
+      memcpy(&cart.hw, &(rom_database[i].cart_hw), sizeof(cart.hw));
+
+      /* initialize memory handlers for $400000-$7FFFFF region */
+      while (j <= rom_database[i].bank_end)
+      {
+        if (cart.hw.regs_r)
+        {
+          m68k.memory_map[j].read8    = cart.hw.regs_r;
+          m68k.memory_map[j].read16   = cart.hw.regs_r;
+          zbank_memory_map[j].read    = cart.hw.regs_r;
+        }
+        if (cart.hw.regs_w)
+        {
+          m68k.memory_map[j].write8   = cart.hw.regs_w;
+          m68k.memory_map[j].write16  = cart.hw.regs_w;
+          zbank_memory_map[j].write   = cart.hw.regs_w;
+        }
+        j++;
+      }
+
+      /* leave loop */
+      break;
+    }
+  }
+#endif
   /**********************************************
           LOCK-ON 
   ***********************************************/
-  
+#ifdef GCWZERO
+  if(!turn_off_lock_on)
+  {
+#endif  
   /* clear existing patches */
   ggenie_shutdown();
   areplay_shutdown();
@@ -509,10 +562,13 @@ void md_cart_init(void)
       break;
     }
   }
-
+#ifdef GCWZERO
+  }
+#endif
   /**********************************************
         CARTRIDGE EXTRA HARDWARE
   ***********************************************/
+#ifndef GCWZERO
   memset(&cart.hw, 0, sizeof(cart.hw));
 
   /* search for game into database */
@@ -549,7 +605,7 @@ void md_cart_init(void)
       break;
     }
   }
-
+#endif
   /* Realtec mapper */
   if (cart.hw.realtec)
   {

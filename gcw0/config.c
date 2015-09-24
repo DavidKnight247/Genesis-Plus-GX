@@ -43,7 +43,7 @@ void set_config_defaults(void)
     config.fm_preamp      = 100;
     config.hq_fm          = 1;
     config.psgBoostNoise  = 1;
-    config.filter         = 1;
+    config.filter         = 2;
     config.low_freq       = 200;
     config.high_freq      = 8000;
     config.lg             = 1.0;
@@ -67,18 +67,19 @@ void set_config_defaults(void)
     config.lcd            = 0; /* 0.8 fixed point */
 
     /* display options */
-    config.overscan         = 0; /* 3 = all borders (0 = no borders , 1 = vertical borders only, 2 = horizontal borders only) */
-    config.gg_extra         = 0; /* 1 = show extended Game Gear screen (256x192) */
-    config.render           = 0; /* 1 = double resolution output (only when interlaced mode 2 is enabled) */
-    config.gcw0_fullscreen  = 1; /* 1 = use IPU scaling */
-    config.keepaspectratio  = 1; /* 1 = aspect ratio correct with black bars, 0 = fullscreen without correct aspect ratio */
-    config.gg_scanlines     = 1; /* 1 = use scanlines on Game Gear */
-    config.smsmaskleftbar   = 1; /* 1 = Mask left bar on SMS (better for horizontal scrolling) */
-    config.sl_autoresume    = 1; /* 1 = Automatically resume when saving and loading snapshots */
-    config.a_stick          = 1; /* 1 = A-Stick on */
-    config.lightgun_speed   = 1; /* 1 = simple speed multiplier for lightgun */
-    config.gcw0_frameskip   = 0; /* 0 = off, 1 = skip alternate frames, 2 = skip 2 in 3 frames, etc. Useful for FMV in MCD. */
-
+    config.overscan         = 0;    /* 3 = all borders (0 = no borders , 1 = vertical borders only, 2 = horizontal borders only) */
+    config.gg_extra         = 0;    /* 1 = show extended Game Gear screen (256x192) */
+    config.render           = 0;    /* 1 = double resolution output (only when interlaced mode 2 is enabled) */
+    config.gcw0_fullscreen  = 1;    /* 1 = use IPU scaling */
+    config.keepaspectratio  = 1;    /* 1 = aspect ratio correct with black bars, 0 = fullscreen without correct aspect ratio */
+    config.gg_scanlines     = 1;    /* 1 = use scanlines on Game Gear */
+    config.smsmaskleftbar   = 1;    /* 1 = Mask left bar on SMS (better for horizontal scrolling) */
+    config.sl_autoresume    = 1;    /* 1 = Automatically resume when saving and loading snapshots */
+    config.a_stick          = 0;    /* 1 = A-Stick on */
+    config.lightgun_speed   = 1;    /* 1 = simple speed multiplier for lightgun */
+    config.optimisations    = 0;    /* 0 = Off, 1 = On(Conservative), 2 = On(Performance). Only affects MCD games and Virtua Racing */
+    config.deadzone         = 2;    /* Analogue joystick deadzone. Lower values are more sensitive but prone to accidental movement */
+    config.renderer         = 0;    /* 0 = Triple buffering, 1 = Double buffering, 2 = Software rendering */
     /* controllers options */
     config.cursor         = 0;  /* different cursor designs */
     input.system[0]       = SYSTEM_GAMEPAD;

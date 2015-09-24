@@ -50,7 +50,6 @@ typedef struct
   uint8 render;
   t_input_config input[MAX_INPUTS];
   uint8 gcw0_fullscreen;
-  uint8 gcw0_frameskip;
   uint8 keepaspectratio;
   uint8 gg_scanlines;
   uint8 smsmaskleftbar;
@@ -58,7 +57,14 @@ typedef struct
   uint8 lightgun_speed;
   uint8 a_stick;
   uint8 cursor;
+  uint8 deadzone;
+  uint8 optimisations;
+  uint8 renderer;
+#ifdef SDL2
+  SDL_Keycode buttons[8];
+#else
   SDLKey buttons[8];
+#endif
   //SDLKey button_a;
   //SDLKey button_b;
   //SDLKey button_c;

@@ -537,6 +537,9 @@ void system_frame_gen(int do_skip)
   end = bitmap.viewport.h + bitmap.viewport.y;
 
   /* Vertical Blanking */
+#ifdef GCWZERO
+int lines_per_frame_adjusted = lines_per_frame-1;
+#endif
   do
   {
     /* update VCounter */
@@ -545,7 +548,9 @@ void system_frame_gen(int do_skip)
     /* render overscan */
     if ((line < end) || (line >= start))
     {
+#ifndef GCWZERO
       blank_line(line, -bitmap.viewport.x, bitmap.viewport.w + 2*bitmap.viewport.x);
+#endif
     }
 
     /* update 6-Buttons & Lightguns */
@@ -589,7 +594,12 @@ void system_frame_gen(int do_skip)
     /* update VDP cycle count */
     mcycles_vdp += MCYCLES_PER_LINE;
   }
+#ifdef GCWZERO
+//small optimisation?
+  while (++line < lines_per_frame_adjusted);
+#else
   while (++line < (lines_per_frame - 1));
+#endif  
   
   /* update VCounter */
   v_counter = line;
@@ -597,7 +607,9 @@ void system_frame_gen(int do_skip)
   /* last line of overscan */
   if (bitmap.viewport.y)
   {
+#ifndef GCWZERO
     blank_line(line, -bitmap.viewport.x, bitmap.viewport.w + 2*bitmap.viewport.x);
+#endif
   }
 
   /* reload H-Int counter */
@@ -905,6 +917,9 @@ void system_frame_scd(int do_skip)
   end = bitmap.viewport.h + bitmap.viewport.y;
 
   /* Vertical Blanking */
+#ifdef GCWZERO
+  int lines_per_frame_adjusted = lines_per_frame-1;
+#endif
   do
   {
     /* update VCounter */
@@ -953,7 +968,11 @@ void system_frame_scd(int do_skip)
     /* update VDP cycle count */
     mcycles_vdp += MCYCLES_PER_LINE;
   }
+#ifdef GCWZERO
+  while (++line < (lines_per_frame_adjusted));
+#else
   while (++line < (lines_per_frame - 1));
+#endif
   
   /* update VCounter */
   v_counter = line;
@@ -1285,6 +1304,9 @@ void system_frame_sms(int do_skip)
   end   = bitmap.viewport.h + bitmap.viewport.y;
 
   /* Vertical Blanking */
+#ifdef GCWZERO
+int lines_per_frame_adjusted = lines_per_frame-1;
+#endif
   do
   {
     /* update VCounter */
@@ -1313,7 +1335,11 @@ void system_frame_sms(int do_skip)
     /* update VDP cycle count */
     mcycles_vdp += MCYCLES_PER_LINE;
   }
+#ifdef GCWZERO
+  while (++line < (lines_per_frame_adjusted));
+#else
   while (++line < (lines_per_frame - 1));
+#endif
 
   /* update VCounter */
   v_counter = line;

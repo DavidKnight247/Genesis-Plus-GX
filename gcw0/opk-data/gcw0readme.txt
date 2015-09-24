@@ -3,6 +3,8 @@ Genesis Plus GX port for the GCW0 Handheld Console
 GCW0 port by:
 Shin-NiL
 David Knight
+Testing:
+Care16la20
 
 Source code available at:
 https://bitbucket.org/shin_nil/genesis-plus-gx-gcw0/
@@ -13,7 +15,7 @@ The source code is based on Genesis Plus 1.3, originally developped by Charles M
 
 The result is that Genesis Plus GX is now more a continuation of the original project than a simple port, providing very accurate emulation and 100% compatibility with Genesis / Mega Drive, Sega / Mega CD, Master System, Game Gear & SG-1000 software (including all unlicensed or pirate known dumps), also emulating backwards compatibility modes when available.
 
-Multi-platform sourcecode is available through SVN and GIT so that other Genesis Plus ports can take advantage of it. The sourcecode is released under a specific non-commercial license, see LICENSE.txt for more informations.
+Multi-platform sourcecode is available through SVN and GIT so that other Genesis Plus ports can take advantage of it. The sourcecode is released under a specific non-commercial license, see LICENSE.txt for more information.
 
 INSTRUCTIONS
 
@@ -38,13 +40,16 @@ R: Z
 START: Start
 SELECT: Mode
 SELECT + START: Menu
-SELECT + L: Quicksave to Savestate 1
+SELECT + L: Quicksave to savestate 1
 SELECT + R: Quickload savestate 1
 
 In lightgun games for the Master system and Genesis/MD A-stick controls the cursor and A/B/C work as normal. Player 2 controls are mapped to the D-pad and X/Y/Z buttons.
 This allows (in theory at least!) two player games. It also allows you to select which control method you prefer. Some games (eg Spacegun) require two controllers.
 
 CONFIGURATION OPTIONS (Default setting)
+
+Renderer (HW Triple Buf)
+Select the preferred rendering method. Options are Hardware (Triple buffering or Double buffering) or Software. 
 
 Scaling (On)
 The gcw0 has hardware bilinear scaling which when turned on will enlarge the image to fill the screen. By default this keeps aspect ration so you will still see small bars unless the scaled resolution is exactly 320x240. This is particularly useful for SMS and GG games.
@@ -58,14 +63,18 @@ This emulates the vertical scanlines visible on the LCD screen. It is only used 
 Mask left bar (SMS) (On)
 The Master System often displays a vertical bar on the left of the screen. Setting this to 'On' will remove it.
 
-Frameskip (0)
-In all games except Mega CD this is of no use as the emulation is near perfect speed (with the exception of Virtual Racing). Setting this value will render fewer frames allowing a little speed increase. This improves the performance of FMV scenes in Mega CD games.
+Optimisations (Off)
+Set to "Off", "On: Balanced" or "On: Performance". This will enable a number of optimisations for Mega CD games, Pier Solar and Virtua Racing. This setting has no effect on other games which should run full speed anyway.
+It will improve emulation speed at the expense of sound quality and framerate. 
 
 Resume on Save/Load (On)
 When saving from the menu, the menu will automatically exit and the game will continue. If turned off it will return you to the menu.
 
-A-stick (On)
+A-stick (Off)
 Some users have issues with their analog controls causing erratic movements. Turning off the A-stick will stop this.
+
+A-stick deadzone(10,000)
+Setting this value higher makes the analogue stick less responsive, setting it lower will make it more reponsive.
 
 Lock-on (Off)
 If enabled, when loading a rom the selected file will be loaded first.
@@ -151,4 +160,4 @@ Ultima IV
 Vigilante
 Wonder Boy III: The Dragon's Trap
 
-2015/03/22
+2015/09/24

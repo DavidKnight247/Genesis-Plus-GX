@@ -38,7 +38,9 @@
 
 #include "shared.h"
 #include "eeprom_93c.h"
+#ifndef GCWZERO
 #include "terebi_oekaki.h"
+#endif
 
 #define MAPPER_NONE        (0x00)
 #define MAPPER_TEREBI      (0x01)
@@ -291,7 +293,7 @@ static const rominfo_t game_list[] =
   {0xD29889AD, 0, 1, SYSTEM_GAMEPAD,  MAPPER_SEGA,   SYSTEM_SMS2,        REGION_USA}, /* Fantasy Zone: The Maze */
   {0xA4AC35D8, 0, 1, SYSTEM_GAMEPAD,  MAPPER_SEGA,   SYSTEM_SMS2,        REGION_USA}, /* Galaxy Force */
   {0x6C827520, 0, 1, SYSTEM_GAMEPAD,  MAPPER_SEGA,   SYSTEM_SMS2,        REGION_USA}, /* Galaxy Force (U) */
-  {0x1890F407, 0, 1, SYSTEM_GAMEPAD,  MAPPER_SEGA,   SYSTEM_SMS2,        REGION_USA}, /* Game Box Série Esportes Radicais (BR) */
+  {0x1890F407, 0, 1, SYSTEM_GAMEPAD,  MAPPER_SEGA,   SYSTEM_SMS2,        REGION_USA}, /* Game Box S\E9rie Esportes Radicais (BR) */
   {0xB746A6F5, 0, 1, SYSTEM_GAMEPAD,  MAPPER_SEGA,   SYSTEM_SMS2,        REGION_USA}, /* Global Defense */
   {0x91A0FC4E, 0, 1, SYSTEM_GAMEPAD,  MAPPER_SEGA,   SYSTEM_SMS2,        REGION_USA}, /* Global Defense [Proto] */
   {0x48651325, 0, 1, SYSTEM_GAMEPAD,  MAPPER_SEGA,   SYSTEM_SMS2,        REGION_USA}, /* Golfamania */
@@ -302,7 +304,7 @@ static const rominfo_t game_list[] =
   {0xE8511B08, 0, 1, SYSTEM_GAMEPAD,  MAPPER_SEGA,   SYSTEM_SMS2,        REGION_USA}, /* Lord of The Sword */
   {0x0E333B6E, 0, 1, SYSTEM_GAMEPAD,  MAPPER_SEGA,   SYSTEM_SMS2,        REGION_USA}, /* Miracle Warriors - Seal of The Dark Lord */
   {0x301A59AA, 0, 1, SYSTEM_GAMEPAD,  MAPPER_SEGA,   SYSTEM_SMS2,        REGION_USA}, /* Miracle Warriors - Seal of The Dark Lord [Proto] */
-  {0x01D67C0B, 0, 1, SYSTEM_GAMEPAD,  MAPPER_SEGA,   SYSTEM_SMS2,        REGION_USA}, /* Mônica no Castelo do Dragão (BR) */
+  {0x01D67C0B, 0, 1, SYSTEM_GAMEPAD,  MAPPER_SEGA,   SYSTEM_SMS2,        REGION_USA}, /* M\F4nica no Castelo do Drag\E3o (BR) */
   {0x5589D8D2, 0, 1, SYSTEM_GAMEPAD,  MAPPER_SEGA,   SYSTEM_SMS2,        REGION_USA}, /* Out Run */
   {0xE030E66C, 0, 1, SYSTEM_GAMEPAD,  MAPPER_SEGA,   SYSTEM_SMS2,        REGION_USA}, /* Parlour Games */
   {0xF97E9875, 0, 1, SYSTEM_GAMEPAD,  MAPPER_SEGA,   SYSTEM_SMS2,        REGION_USA}, /* Penguin Land */
@@ -317,7 +319,7 @@ static const rominfo_t game_list[] =
   {0x1A390B93, 0, 1, SYSTEM_GAMEPAD,  MAPPER_SEGA,   SYSTEM_SMS2,        REGION_USA}, /* Tennis Ace */
   {0xAE920E4B, 0, 1, SYSTEM_GAMEPAD,  MAPPER_SEGA,   SYSTEM_SMS2,        REGION_USA}, /* Thunder Blade */
   {0x51BD14BE, 0, 1, SYSTEM_GAMEPAD,  MAPPER_SEGA,   SYSTEM_SMS2,        REGION_USA}, /* Time Soldiers */
-  {0x22CCA9BB, 0, 1, SYSTEM_GAMEPAD,  MAPPER_SEGA,   SYSTEM_SMS2,        REGION_USA}, /* Turma da Mônica em: O Resgate (BR) */
+  {0x22CCA9BB, 0, 1, SYSTEM_GAMEPAD,  MAPPER_SEGA,   SYSTEM_SMS2,        REGION_USA}, /* Turma da M\F4nica em: O Resgate (BR) */
   {0xB52D60C8, 0, 1, SYSTEM_GAMEPAD,  MAPPER_SEGA,   SYSTEM_SMS2,        REGION_USA}, /* Ultima IV */
   {0xDE9F8517, 0, 1, SYSTEM_GAMEPAD,  MAPPER_SEGA,   SYSTEM_SMS2,        REGION_USA}, /* Ultima IV [Proto] */
   {0xDFB0B161, 0, 1, SYSTEM_GAMEPAD,  MAPPER_SEGA,   SYSTEM_SMS2,        REGION_USA}, /* Vigilante */
@@ -697,7 +699,7 @@ int sms_cart_region_detect(void)
   /* compute CRC */
   uint32 crc = crc32(0, cart.rom, cart.romsize);
 
-  /* Turma da Mônica em: O Resgate & Wonder Boy III enable FM support on japanese hardware only */
+  /* Turma da M\F4nica em: O Resgate & Wonder Boy III enable FM support on japanese hardware only */
   if (config.ym2413 && ((crc == 0x22CCA9BB) || (crc == 0x679E1676)))
   {
     return REGION_JAPAN_NTSC;
@@ -1342,7 +1344,9 @@ static void write_mapper_terebi(unsigned int address, unsigned char data)
 {
   if (address == 0x6000)
   {
+#ifndef GCWZERO
     terebi_oekaki_write(data);
+#endif
     return;
   }
 
@@ -1363,12 +1367,16 @@ static unsigned char read_mapper_terebi(unsigned int address)
 {
   if (address == 0x8000)
   {
+#ifndef GCWZERO
     return (terebi_oekaki_read() >> 8);
+#endif
   }
 
   if (address == 0xA000)
   {
+#ifndef GCWZERO
     return (terebi_oekaki_read() & 0xFF);
+#endif
   }
 
   return z80_readmap[address >> 10][address & 0x03FF];
