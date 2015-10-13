@@ -17,6 +17,10 @@
 #include <SDL_image.h>
 #include <time.h>
 
+static short unsigned int old_srect_h;
+static short unsigned int old_srect_y;
+static short unsigned int old_drect_h;
+static short unsigned int old_drect_y;
 int    gcwzero_cycles = 3420;
 uint8  do_once        = 1;
 uint32 gcw0_w         = 320;
@@ -63,7 +67,7 @@ uint fullscreen = 1; /* SDL_FULLSCREEN */
  * If you don't want them remove references to this function.  *
  * This function is only called for Virtua racing and MCD roms.* 
  ***************************************************************/
-void calc_framerate(void)
+int calc_framerate(int optimisations)
 {
     if (!gotomenu)
     {
@@ -73,7 +77,8 @@ void calc_framerate(void)
 
         static sint8 frameskipcount = 5;
         //printf("\nframerate = %d", frametime);
-
+if(optimisations && sprite_drawn_from_line > 1)
+{
         if (virtua_racing)
         {
             if (config.optimisations == 1) //Balanced performance improvements
@@ -81,7 +86,7 @@ void calc_framerate(void)
                 if (frametime > (vdp_pal ? 50 : 60))
                 {
                     turbo_mode = 1;
-                    if (SVP_cycles >= 500)      SVP_cycles -= 100;
+                    if (SVP_cycles >= 600)      SVP_cycles -= 100;
                     gcwzero_cycles = (vdp_pal ? 2859 : 2873);
                     frameskipcount = 0;
                     if (frameskip < 2)
@@ -90,7 +95,7 @@ void calc_framerate(void)
                 else
                 {
                     turbo_mode = 0;
-                    if (SVP_cycles <= 780)      SVP_cycles += 40;
+                  if (SVP_cycles <= 780)      SVP_cycles += 20;
                     gcwzero_cycles = (vdp_pal ? 3010 : 3192);
                     if (++frameskipcount > 24)
                     {
@@ -191,7 +196,9 @@ void calc_framerate(void)
                 }
             } //Speed optimisations
         } //MCD optimisations
+} else return frametime;
     }
+return 1;
 }
 
 /* sound */
@@ -313,13 +320,10 @@ static void sdl_sound_close()
 static void sdl_joystick_init()
 {
     if (SDL_Init(SDL_INIT_JOYSTICK) < 0)
-    {
         MessageBox(NULL, "SDL Joystick initialization failed", "Error", 0);
-        return;
-    } 
     else
         MessageBox(NULL, "SDL Joystick initialisation successful", "Success", 0);
-        return;
+    return;
 }
 #endif
  
@@ -370,6 +374,7 @@ static void sdl_video_update()
 #ifdef GCWZERO
         if ((skipval >= frameskip) && (skipval < 10))
         {
+            do_not_blit = 1; //default is do not blit, we will change this later if a pixel changes on the screen.
             system_frame_scd(0); //render frame
             skipval = 10;
         } else {
@@ -385,6 +390,7 @@ static void sdl_video_update()
     {
         if ((skipval >= frameskip) && (skipval < 10)) 
         {
+            do_not_blit = 1; //default is do not blit, we will change this later if a pixel changes on the screen.
             system_frame_gen(0);
             skipval = 10;
         } else {
@@ -400,6 +406,7 @@ static void sdl_video_update()
 #ifdef GCWZERO
         if (skipval >= frameskip) 
         {
+            do_not_blit = 1; //default is do not blit, we will change this later if a pixel changes on the screen.
             system_frame_sms(0);
             skipval = 10;
         } else {
@@ -425,10 +432,7 @@ static void sdl_video_update()
             else
                 sdl_video.srect.x = 0;
         }
-        else
-        {
-            sdl_video.srect.x = 0;
-        }
+        else   sdl_video.srect.x = 0;
         sdl_video.srect.y = 0;
         sdl_video.srect.w = bitmap.viewport.w + (2 * bitmap.viewport.x);
         sdl_video.srect.h = bitmap.viewport.h + (2 * bitmap.viewport.y);
@@ -469,6 +473,10 @@ static void sdl_video_update()
             else                    SDL_UpdateRect(sdl_video.surf_screen, 0, 0, 0, 0);
         }
 #endif
+        old_srect_h = sdl_video.srect.h;
+        old_srect_y = sdl_video.srect.y;
+        old_drect_h = sdl_video.drect.h;
+        old_drect_y = sdl_video.drect.y;
     }
 
 //DK IPU scaling for gg/sms roms
@@ -514,6 +522,11 @@ static void sdl_video_update()
             gcw0_w = sdl_video.drect.w;
             gcw0_h = sdl_video.drect.h;
 
+            old_srect_h = sdl_video.srect.h;
+            old_srect_y = sdl_video.srect.y;
+            old_drect_h = sdl_video.drect.h;
+            old_drect_y = sdl_video.drect.y;
+
             if ( (system_hw == SYSTEM_MARKIII) || (system_hw == SYSTEM_SMS) || (system_hw == SYSTEM_SMS2) || (system_hw == SYSTEM_PBC) )
             {
 #ifdef SDL2
@@ -540,8 +553,69 @@ static void sdl_video_update()
 
     if (!frameskip || (skipval == 10) )
     {
+      if(!do_not_blit) //at least one pixel has changed so we need to blit and flip.
+      {
+        static int blitcount_y = 0;
+        static int blitcount_h = 0;
+        static int blitcount = 0;
+        static int old_sdfl = 0;
+        static int old_sdtl = 0;
+        blitcount_y++;
+        blitcount_h++;
+        blitcount++;
+        old_sdfl = sprite_drawn_from_line;
+        old_sdtl = sprite_drawn_to_line;
+
+        if(old_sdfl != sprite_drawn_from_line) //y position has moved, we must change y and h values unless y has increased and triple buffer has not finished
+        {
+          if(old_sdfl < sprite_drawn_from_line && blitcount > 4) //y position has moved down we can only change this if the buffer is finished
+          {
+            //move y up
+            sdl_video.srect.y = old_srect_y + sprite_drawn_from_line -1;
+            sdl_video.drect.y = old_drect_y + sprite_drawn_from_line -1;
+            //add dy to h
+            sdl_video.srect.h -= (sprite_drawn_from_line - old_sdfl);
+            sdl_video.drect.h -= (sprite_drawn_from_line - old_sdfl);
+            blitcount = 0;
+          }
+          else //y has moved up, we are safe just to change the values
+          {
+            sdl_video.srect.y = old_srect_y + sprite_drawn_from_line -1;
+            sdl_video.drect.y = old_drect_y + sprite_drawn_from_line -1;
+            sdl_video.srect.h += (sprite_drawn_from_line - old_sdfl);
+            sdl_video.drect.h += (sprite_drawn_from_line - old_sdfl);
+//            blitcount = 0;
+          }
+        }
+        if(old_sdtl != sprite_drawn_to_line) //bottom y position has moved, we must change h values unless h has increased and triple buffer has not finished
+        {
+          if(old_sdtl > sprite_drawn_to_line && blitcount > 4) //bottom y has moved up, only change if we can
+          {
+            sdl_video.srect.h -= (sprite_drawn_to_line - old_sdtl);
+            sdl_video.drect.h -= (sprite_drawn_to_line - old_sdtl);
+            blitcount = 0;
+          }
+          else
+          {
+            sdl_video.srect.h += (sprite_drawn_to_line - old_sdtl);
+            sdl_video.drect.h += (sprite_drawn_to_line - old_sdtl);
+//            blitcount = 0;
+          }
+        }
+        if (config.gcw0_fullscreen)
+        {
+          gcw0_w = sdl_video.drect.w;
+          gcw0_h = sdl_video.drect.h;
+        }
+
         SDL_BlitSurface(sdl_video.surf_bitmap, &sdl_video.srect, sdl_video.surf_screen, &sdl_video.drect);
         skipval = 19;
+      }
+      else if (show_lightgun)
+      {
+        SDL_BlitSurface(sdl_video.surf_bitmap, &sdl_video.srect, sdl_video.surf_screen, &sdl_video.drect);
+        skipval = 19;
+      }
     }
 #endif //!SDL2
 #ifdef GCWZERO
@@ -615,8 +689,16 @@ static void sdl_video_update()
         SDL_RenderCopy(renderer, texture, NULL, NULL);
         SDL_RenderPresent(renderer);
 #else
-        if(config.renderer < 2) SDL_Flip      (sdl_video.surf_screen            );
-        else                    SDL_UpdateRect(sdl_video.surf_screen, 0, 0, 0, 0);
+        if(!do_not_blit)
+        {
+          if(config.renderer < 2) SDL_Flip      (sdl_video.surf_screen            );
+          else                    SDL_UpdateRect(sdl_video.surf_screen, 0, 0, 0, 0);
+        }
+        else if(show_lightgun)
+        {
+          if(config.renderer < 2) SDL_Flip      (sdl_video.surf_screen            );
+          else                    SDL_UpdateRect(sdl_video.surf_screen, 0, 0, 0, 0);
+        }
 #endif
         skipval = 0;
     }
@@ -2419,7 +2501,7 @@ int main (int argc, char **argv)
 	}
 
         /* SMS automask leftbar if screen mode changes (eg Alex Kidd in Miracle World) */
-        static int smsmaskleftbar;
+        static int smsmaskleftbar = 0;
         if (config.smsmaskleftbar != smsmaskleftbar)
         {
             /* force screen change */
@@ -2436,12 +2518,13 @@ int main (int argc, char **argv)
             if (system_hw == SYSTEM_MCD || virtua_racing)
             {
                 if (config.optimisations)
-                    calc_framerate();
+                    calc_framerate(1);
                 else
                 {
-                    turbo_mode     = frameskip = 0;
-                    gcwzero_cycles = 3420;
-                    SVP_cycles     = 800;
+                    if(turbo_mode || frameskip) turbo_mode = frameskip = 0;
+//                    if(calc_framerate(0) > 50) turbo_mode= 1; else turbo_mode = 0;
+                    if(gcwzero_cycles != 3420) gcwzero_cycles = 3420;
+                    if(SVP_cycles != 800) SVP_cycles = 800;
                 }
             }
 

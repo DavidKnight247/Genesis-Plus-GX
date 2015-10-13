@@ -43,6 +43,12 @@
 #include "md_ntsc.h"
 #include "sms_ntsc.h"
 
+#ifdef GCWZERO
+uint8 do_not_blit = 1;
+int sprite_drawn_from_line = 1; //extern
+int sprite_drawn_to_line = 1; //extern
+#endif
+
 /*** NTSC Filters ***/
 extern md_ntsc_t *md_ntsc;
 extern sms_ntsc_t *sms_ntsc;
@@ -3708,7 +3714,6 @@ void parse_satb_tms(int line)
   /* Insert number of last sprite entry processed */
   status = (status & 0xE0) | (i & 0x1F);
 }
-
 void parse_satb_m4(int line)
 {
   int i = 0;
@@ -4110,7 +4115,6 @@ void render_reset(void)
 /*--------------------------------------------------------------------------*/
 /* Line rendering functions                                                 */
 /*--------------------------------------------------------------------------*/
-
 void render_line(int line)
 {
   /* Check display status */
@@ -4141,7 +4145,7 @@ void render_line(int line)
       }
     }
 #ifdef GCWZERO
-    else config.smsmaskleftbar = 0;
+    else if(config.smsmaskleftbar) config.smsmaskleftbar = 0;
 #endif
 
     /* Parse sprites for next line */
@@ -4223,21 +4227,59 @@ void remap_line(int line)
 #ifdef CUSTOM_BLITTER
     CUSTOM_BLITTER(line, width, pixel, src)
 #else
-#ifdef GCWZERO
+#ifdef GCWZERO //Custom blitter
+/********************************************************************
+ * The GCW0 needs an optimised custom blitter, we first identify    *
+ * if the line contains any different pixels, we only change the    *
+ * pixels which need changing. We find the first and last line      *
+ * where this happens, then we blit in between these values.        *
+ * Lastly, if there are no changes in pixels, we don't blit or flip *
+ * saving valuable cpu cycles :)                                    *
+ * The code detects the lines, the rest will occur in main.c        *
+ ********************************************************************/
     PIXEL_OUT_T *dst = ((PIXEL_OUT_T *)&bitmap.data[(line * bitmap.pitch)]);
-    do
+    if(!do_not_blit) //we're already blitting
     {
-      *dst++ = pixel[*src++];
-      *dst++ = pixel[*src++];
-      *dst++ = pixel[*src++];
-      *dst++ = pixel[*src++];
-      *dst++ = pixel[*src++];
-      *dst++ = pixel[*src++];
-      *dst++ = pixel[*src++];
-      *dst++ = pixel[*src++];
+      while (width)
+      {
+        width -= 16;
+        for(int a = 0; a < 16; a++)
+        {
+          if(*dst != pixel[*src])
+          {
+            *dst = pixel[*src];
+            if(sprite_drawn_to_line < line)
+              sprite_drawn_to_line = line; //define the last line
+          }
+          //check next pixel
+          *dst++;
+          *src++;
+        }
+      }
     }
-    while (width-=8);
-
+    else //we might not need to blit...check for changes to the image.
+    {
+      int dnb = do_not_blit;
+      while (width)
+      {
+        width -= 16;
+        for(int a = 0; a < 16; a++)
+        {
+          if(*dst != pixel[*src])
+          {
+            *dst = pixel[*src];
+            if(dnb) dnb = !dnb;
+          }
+          *dst++;
+          *src++;
+        }
+      }
+      if(!dnb)
+      {
+        sprite_drawn_from_line = sprite_drawn_to_line = line; //define the last line as well, for now they are the same.
+        do_not_blit = 0;
+      }
+    }
 #else
     /* Convert VDP pixel data to output pixel format */
     PIXEL_OUT_T *dst = ((PIXEL_OUT_T *)&bitmap.data[(line * bitmap.pitch)]);

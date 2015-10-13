@@ -41,7 +41,6 @@
 
 #ifndef _RENDER_H_
 #define _RENDER_H_
-
 /* 3:3:2 RGB */
 #if defined(USE_8BPP_RENDERING)
 #define PIXEL(r,g,b) (((r) << 5) | ((g) << 2) | (b))
@@ -99,7 +98,11 @@
 
 /* Global variables */
 extern uint16 spr_col;
-
+#ifdef GCWZERO
+extern int sprite_drawn_from_line;
+extern int sprite_drawn_to_line;
+extern uint8 do_not_blit;
+#endif
 /* Function prototypes */
 extern void render_init(void);
 extern void render_reset(void);
