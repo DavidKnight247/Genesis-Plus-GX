@@ -17,9 +17,10 @@
 #include <SDL_image.h>
 #include <time.h>
 
-static short unsigned int old_srect_h;
+static int sy1, sy2, sy3 = 0;
+static int dy1, dy2, dy3 = 0;
+static int  h1,  h2,  h3 = 0;
 static short unsigned int old_srect_y;
-static short unsigned int old_drect_h;
 static short unsigned int old_drect_y;
 int    gcwzero_cycles = 3420;
 uint8  do_once        = 1;
@@ -77,7 +78,7 @@ int calc_framerate(int optimisations)
 
         static sint8 frameskipcount = 5;
         //printf("\nframerate = %d", frametime);
-if(optimisations && sprite_drawn_from_line > 1)
+if(optimisations && drawn_from_line > 1)
 {
         if (virtua_racing)
         {
@@ -473,10 +474,12 @@ static void sdl_video_update()
             else                    SDL_UpdateRect(sdl_video.surf_screen, 0, 0, 0, 0);
         }
 #endif
-        old_srect_h = sdl_video.srect.h;
         old_srect_y = sdl_video.srect.y;
-        old_drect_h = sdl_video.drect.h;
         old_drect_y = sdl_video.drect.y;
+        drawn_from_line = 0;
+        sy1 = sy2 = sy3 = sdl_video.srect.y;
+        dy1 = dy2 = dy3 = sdl_video.drect.y;
+        h1  =  h2 =  h3 = sdl_video.srect.h;
     }
 
 //DK IPU scaling for gg/sms roms
@@ -522,10 +525,12 @@ static void sdl_video_update()
             gcw0_w = sdl_video.drect.w;
             gcw0_h = sdl_video.drect.h;
 
-            old_srect_h = sdl_video.srect.h;
             old_srect_y = sdl_video.srect.y;
-            old_drect_h = sdl_video.drect.h;
             old_drect_y = sdl_video.drect.y;
+            drawn_from_line = 0;
+            sy1 = sy2 = sy3 = sdl_video.srect.y;
+            dy1 = dy2 = dy3 = sdl_video.drect.y;
+            h1  =  h2 =  h3 = sdl_video.srect.h;
 
             if ( (system_hw == SYSTEM_MARKIII) || (system_hw == SYSTEM_SMS) || (system_hw == SYSTEM_SMS2) || (system_hw == SYSTEM_PBC) )
             {
@@ -553,64 +558,51 @@ static void sdl_video_update()
 
     if (!frameskip || (skipval == 10) )
     {
+      //Custom Blitter, see core/vdp_render.c
       if(!do_not_blit) //at least one pixel has changed so we need to blit and flip.
       {
-        static int blitcount_y = 0;
-        static int blitcount_h = 0;
-        static int blitcount = 0;
-        static int old_sdfl = 0;
-        static int old_sdtl = 0;
-        blitcount_y++;
-        blitcount_h++;
-        blitcount++;
-        old_sdfl = sprite_drawn_from_line;
-        old_sdtl = sprite_drawn_to_line;
+        if(system_hw == SYSTEM_MCD || (system_hw & SYSTEM_PBC) == SYSTEM_MD)
+        {
+          // Define the new srect and drect value of y
+          sdl_video.srect.y = old_srect_y + drawn_from_line - 1;
+          sdl_video.drect.y = old_drect_y + drawn_from_line - 1;
+          //Reduce h if we're stopping blitting early
+          sdl_video.srect.h = sdl_video.drect.h = (drawn_to_line - drawn_from_line + 2);
+          if(config.renderer <  2) //we're using hardware rendering so we need to prevent flicker
+          {
+            /************************************************************************************************
+             * We first need to find out what is the minimum value of y to blit, then the max value of y+h. *
+             * We use the previous three values as we are triple buffering.                                 *
+             ************************************************************************************************/
+            static int rot = 0; //rotate between settings
+            rot++;
+            if      (rot == 1) {          sy1 = sdl_video.srect.y; dy1 = sdl_video.drect.y; h1 =  sdl_video.srect.h; }
+            else if (rot == 2) {          sy2 = sdl_video.srect.y; dy2 = sdl_video.drect.y; h2 =  sdl_video.srect.h; }
+            else               { rot = 0; sy3 = sdl_video.srect.y; dy3 = sdl_video.drect.y; h3 =  sdl_video.srect.h; }
 
-        if(old_sdfl != sprite_drawn_from_line) //y position has moved, we must change y and h values unless y has increased and triple buffer has not finished
-        {
-          if(old_sdfl < sprite_drawn_from_line && blitcount > 4) //y position has moved down we can only change this if the buffer is finished
-          {
-            //move y up
-            sdl_video.srect.y = old_srect_y + sprite_drawn_from_line -1;
-            sdl_video.drect.y = old_drect_y + sprite_drawn_from_line -1;
-            //add dy to h
-            sdl_video.srect.h -= (sprite_drawn_from_line - old_sdfl);
-            sdl_video.drect.h -= (sprite_drawn_from_line - old_sdfl);
-            blitcount = 0;
-          }
-          else //y has moved up, we are safe just to change the values
-          {
-            sdl_video.srect.y = old_srect_y + sprite_drawn_from_line -1;
-            sdl_video.drect.y = old_drect_y + sprite_drawn_from_line -1;
-            sdl_video.srect.h += (sprite_drawn_from_line - old_sdfl);
-            sdl_video.drect.h += (sprite_drawn_from_line - old_sdfl);
-//            blitcount = 0;
-          }
-        }
-        if(old_sdtl != sprite_drawn_to_line) //bottom y position has moved, we must change h values unless h has increased and triple buffer has not finished
-        {
-          if(old_sdtl > sprite_drawn_to_line && blitcount > 4) //bottom y has moved up, only change if we can
-          {
-            sdl_video.srect.h -= (sprite_drawn_to_line - old_sdtl);
-            sdl_video.drect.h -= (sprite_drawn_to_line - old_sdtl);
-            blitcount = 0;
-          }
-          else
-          {
-            sdl_video.srect.h += (sprite_drawn_to_line - old_sdtl);
-            sdl_video.drect.h += (sprite_drawn_to_line - old_sdtl);
-//            blitcount = 0;
-          }
-        }
-        if (config.gcw0_fullscreen)
-        {
-          gcw0_w = sdl_video.drect.w;
-          gcw0_h = sdl_video.drect.h;
-        }
+            //which is lowest (or are they equal?)
+            if (sy1 <= sy2 && sy1 <= sy3) { sdl_video.srect.y = sy1; sdl_video.drect.y = sy1; } else
+            if (sy2 <= sy1 && sy2 <= sy3) { sdl_video.srect.y = sy2; sdl_video.drect.y = sy2; } else
+            if (sy3 <= sy1 && sy3 <= sy2) { sdl_video.srect.y = sy3; sdl_video.drect.y = sy3; }
 
-        SDL_BlitSurface(sdl_video.surf_bitmap, &sdl_video.srect, sdl_video.surf_screen, &sdl_video.drect);
-        skipval = 19;
-      }
+            //what is the highest value of y+h?
+            if(sy1+h1 >= sy2+h2 && sy1+h1 >= sy3+h3) sdl_video.srect.h = sdl_video.drect.h = sy1+h1-sdl_video.srect.y;
+            if(sy2+h2 >= sy1+h1 && sy2+h2 >= sy3+h3) sdl_video.srect.h = sdl_video.drect.h = sy2+h2-sdl_video.srect.y;
+            if(sy3+h3 >= sy1+h1 && sy3+h3 >= sy2+h2) sdl_video.srect.h = sdl_video.drect.h = sy3+h3-sdl_video.srect.y;
+          }//config.renderer < 2
+          if (config.gcw0_fullscreen)
+          {
+            gcw0_w = sdl_video.drect.w;
+            gcw0_h = sdl_video.drect.h;
+          }
+          SDL_BlitSurface(sdl_video.surf_bitmap, &sdl_video.srect, sdl_video.surf_screen, &sdl_video.drect);
+          skipval = 19;
+        } //system = mcd or md
+        else //for older systems we'll just blit, we don't need to optimise these further anyway.
+        {
+          SDL_BlitSurface(sdl_video.surf_bitmap, &sdl_video.srect, sdl_video.surf_screen, &sdl_video.drect);
+        }
+      } //!do_not_blit so we'll do nothing...unless...
       else if (show_lightgun)
       {
         SDL_BlitSurface(sdl_video.surf_bitmap, &sdl_video.srect, sdl_video.surf_screen, &sdl_video.drect);
@@ -2317,15 +2309,18 @@ int main (int argc, char **argv)
         config.hq_fm          = 0;
         config.psgBoostNoise  = 0;
         config.filter         = 0;
-        config.dac_bits       = 9;
+//        config.dac_bits       = 9;
+        config.dac_bits       = 7;
     }
     else if (system_hw == SYSTEM_MCD)
     {
         frameskip             = 4;
         config.hq_fm          = 0;
         config.psgBoostNoise  = 0;
-        config.filter         = 1;
-        config.dac_bits       = 9;
+//        config.filter         = 1;
+        config.filter         = 0;
+//        config.dac_bits       = 9;
+        config.dac_bits       = 7;
     }
     else
     {

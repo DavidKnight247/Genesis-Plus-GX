@@ -99,9 +99,11 @@
 /* Global variables */
 extern uint16 spr_col;
 #ifdef GCWZERO
-extern int sprite_drawn_from_line;
-extern int sprite_drawn_to_line;
+extern int drawn_from_line;
+extern int drawn_to_line;
 extern uint8 do_not_blit;
+extern int bg_start;
+extern int bg_end;
 #endif
 /* Function prototypes */
 extern void render_init(void);

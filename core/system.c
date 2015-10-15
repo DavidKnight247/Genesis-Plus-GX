@@ -204,13 +204,11 @@ int audio_update(int16 *buffer)
 {
   /* run sound chips until end of frame */
   int size = sound_update(mcycles_vdp);
-
   /* Mega CD specific */
   if (system_hw == SYSTEM_MCD)
   {
     /* sync PCM chip with other sound chips */
     pcm_update(size);
-
     /* read CDDA samples */
     cdd_read_audio(size);
   }

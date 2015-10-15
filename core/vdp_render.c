@@ -45,8 +45,11 @@
 
 #ifdef GCWZERO
 uint8 do_not_blit = 1;
-int sprite_drawn_from_line = 1; //extern
-int sprite_drawn_to_line = 1; //extern
+int drawn_from_line = 0; //extern
+int drawn_to_line = 1; //extern
+int pixel_changed = 0;
+int bg_start = 0;
+int bg_end = 0;
 #endif
 
 /*** NTSC Filters ***/
@@ -972,9 +975,25 @@ INLINE void merge(uint8 *srca, uint8 *srcb, uint8 *dst, uint8 *table, int width)
 {
   do
   {
+#ifdef GCWZERO2
+for(int i=0; i<16; i++)
+{
+if( *dst != table[(*srcb << 8) | (*srca)])
+{
+pixel_changed = 1;
+    *dst = table[(*srcb << 8) | (*srca)];
+}*dst++;
+*srcb++;
+*srca++;
+}
+width -= 16;
+  }
+  while (width>15);
+#else
     *dst++ = table[(*srcb++ << 8) | (*srca++)];
   }
   while (--width);
+#endif
 }
 
 
@@ -1671,7 +1690,18 @@ void render_bg_m5(int line)
   }
 
   /* Merge background layers */
+#ifdef GCWZERO2
+pixel_changed = 0;
   merge(&linebuf[1][0x20], &linebuf[0][0x20], &linebuf[0][0x20], lut[(reg[12] & 0x08) >> 2], bitmap.viewport.w);
+if(pixel_changed && bg_start == 1)
+{
+  bg_start = line;
+  do_not_blit = 0;
+}
+else if(pixel_changed && bgstart > 1) bg_end = line;
+#else
+  merge(&linebuf[1][0x20], &linebuf[0][0x20], &linebuf[0][0x20], lut[(reg[12] & 0x08) >> 2], bitmap.viewport.w);
+#endif
 }
 
 void render_bg_m5_vs(int line)
@@ -1861,7 +1891,14 @@ void render_bg_m5_vs(int line)
   }
 
   /* Merge background layers */
+#ifdef GCWZERO2
+pixel_changed = 0;
   merge(&linebuf[1][0x20], &linebuf[0][0x20], &linebuf[0][0x20], lut[(reg[12] & 0x08) >> 2], bitmap.viewport.w);
+if(pixel_changed && bg_start == 1) bg_start = line;
+else if(pixel_changed && bgstart > 1) bg_end = line;
+#else
+  merge(&linebuf[1][0x20], &linebuf[0][0x20], &linebuf[0][0x20], lut[(reg[12] & 0x08) >> 2], bitmap.viewport.w);
+#endif
 }
 
 void render_bg_m5_im2(int line)
@@ -2013,7 +2050,14 @@ void render_bg_m5_im2(int line)
   }
 
   /* Merge background layers */
+#ifdef GCWZERO2
+pixel_changed = 0;
   merge(&linebuf[1][0x20], &linebuf[0][0x20], &linebuf[0][0x20], lut[(reg[12] & 0x08) >> 2], bitmap.viewport.w);
+if(pixel_changed && bg_start == 1) bg_start = line;
+else if(pixel_changed && bgstart > 1) bg_end = line;
+#else
+  merge(&linebuf[1][0x20], &linebuf[0][0x20], &linebuf[0][0x20], lut[(reg[12] & 0x08) >> 2], bitmap.viewport.w);
+#endif
 }
 
 void render_bg_m5_im2_vs(int line)
@@ -2204,7 +2248,14 @@ void render_bg_m5_im2_vs(int line)
   }
 
   /* Merge background layers */
+#ifdef GCWZERO2
+pixel_changed = 0;
   merge(&linebuf[1][0x20], &linebuf[0][0x20], &linebuf[0][0x20], lut[(reg[12] & 0x08) >> 2], bitmap.viewport.w);
+if(pixel_changed && bg_start == 1) bg_start = line;
+else if(pixel_changed && bgstart > 1) bg_end = line;
+#else
+  merge(&linebuf[1][0x20], &linebuf[0][0x20], &linebuf[0][0x20], lut[(reg[12] & 0x08) >> 2], bitmap.viewport.w);
+#endif
 }
 
 #else
@@ -4128,6 +4179,8 @@ void render_line(int line)
     }
 
     /* Render BG layer(s) */
+//if(line % 2)
+if(line == 1) bg_start = bg_end = 1;
     render_bg(line);
 
     /* Render sprite layer */
@@ -4248,8 +4301,8 @@ void remap_line(int line)
           if(*dst != pixel[*src])
           {
             *dst = pixel[*src];
-            if(sprite_drawn_to_line < line)
-              sprite_drawn_to_line = line; //define the last line
+            if(drawn_to_line < line)
+              drawn_to_line = line; //define the last line
           }
           //check next pixel
           *dst++;
@@ -4276,7 +4329,7 @@ void remap_line(int line)
       }
       if(!dnb)
       {
-        sprite_drawn_from_line = sprite_drawn_to_line = line; //define the last line as well, for now they are the same.
+        drawn_from_line = drawn_to_line = line ; //define the last line as well, for now they are the same.
         do_not_blit = 0;
       }
     }
