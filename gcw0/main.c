@@ -338,6 +338,8 @@ struct
     SDL_Surface* surf_bitmap;
     SDL_Rect srect;
     SDL_Rect drect;
+    SDL_Rect my_srect; //for blitting small portions of the screen (custom blitter)
+    SDL_Rect my_drect; //
     Uint32 frames_rendered;
 } sdl_video;
  
@@ -480,6 +482,14 @@ static void sdl_video_update()
         sy1 = sy2 = sy3 = sdl_video.srect.y;
         dy1 = dy2 = dy3 = sdl_video.drect.y;
         h1  =  h2 =  h3 = sdl_video.srect.h;
+        sdl_video.my_srect.x = sdl_video.srect.x;
+        sdl_video.my_srect.y = sdl_video.srect.y;
+        sdl_video.my_srect.w = sdl_video.srect.w;
+        sdl_video.my_srect.h = sdl_video.srect.h;
+        sdl_video.my_drect.x = sdl_video.drect.x;
+        sdl_video.my_drect.y = sdl_video.drect.y;
+        sdl_video.my_drect.w = sdl_video.drect.w;
+        sdl_video.my_drect.h = sdl_video.drect.h;
     }
 
 //DK IPU scaling for gg/sms roms
@@ -510,6 +520,7 @@ static void sdl_video_update()
                 sdl_video.drect.w = sdl_video.srect.w;
             }
 
+/*
             if (strstr(rominfo.international,"Virtua Racing"))
             {
                 sdl_video.srect.y = (sdl_video.srect.h - VIDEO_HEIGHT) / 2 + 24;
@@ -518,10 +529,12 @@ static void sdl_video_update()
             }
             else
             {
+*/
                 sdl_video.drect.h = sdl_video.srect.h;
                 sdl_video.drect.y = 0;
+/*
             }
-
+*/
             gcw0_w = sdl_video.drect.w;
             gcw0_h = sdl_video.drect.h;
 
@@ -531,6 +544,14 @@ static void sdl_video_update()
             sy1 = sy2 = sy3 = sdl_video.srect.y;
             dy1 = dy2 = dy3 = sdl_video.drect.y;
             h1  =  h2 =  h3 = sdl_video.srect.h;
+            sdl_video.my_srect.x = sdl_video.srect.x;
+            sdl_video.my_srect.y = sdl_video.srect.y;
+            sdl_video.my_srect.w = sdl_video.srect.w;
+            sdl_video.my_srect.h = sdl_video.srect.h;
+            sdl_video.my_drect.x = sdl_video.drect.x;
+            sdl_video.my_drect.y = sdl_video.drect.y;
+            sdl_video.my_drect.w = sdl_video.drect.w;
+            sdl_video.my_drect.h = sdl_video.drect.h;
 
             if ( (system_hw == SYSTEM_MARKIII) || (system_hw == SYSTEM_SMS) || (system_hw == SYSTEM_SMS2) || (system_hw == SYSTEM_PBC) )
             {
@@ -564,10 +585,10 @@ static void sdl_video_update()
         if(system_hw == SYSTEM_MCD || (system_hw & SYSTEM_PBC) == SYSTEM_MD)
         {
           // Define the new srect and drect value of y
-          sdl_video.srect.y = old_srect_y + drawn_from_line - 1;
-          sdl_video.drect.y = old_drect_y + drawn_from_line - 1;
+          sdl_video.my_srect.y = old_srect_y + drawn_from_line - 1;
+          sdl_video.my_drect.y = old_drect_y + drawn_from_line - 1;
           //Reduce h if we're stopping blitting early
-          sdl_video.srect.h = sdl_video.drect.h = (drawn_to_line - drawn_from_line + 2);
+          sdl_video.my_srect.h = sdl_video.my_drect.h = (drawn_to_line - drawn_from_line + 2);
           if(config.renderer <  2) //we're using hardware rendering so we need to prevent flicker
           {
             /************************************************************************************************
@@ -576,26 +597,28 @@ static void sdl_video_update()
              ************************************************************************************************/
             static int rot = 0; //rotate between settings
             rot++;
-            if      (rot == 1) {          sy1 = sdl_video.srect.y; dy1 = sdl_video.drect.y; h1 =  sdl_video.srect.h; }
-            else if (rot == 2) {          sy2 = sdl_video.srect.y; dy2 = sdl_video.drect.y; h2 =  sdl_video.srect.h; }
-            else               { rot = 0; sy3 = sdl_video.srect.y; dy3 = sdl_video.drect.y; h3 =  sdl_video.srect.h; }
+            if (rot == 1) {          sy1 = sdl_video.my_srect.y; dy1 = sdl_video.my_drect.y; h1 =  sdl_video.my_srect.h; } else
+            if (rot == 2) {          sy2 = sdl_video.my_srect.y; dy2 = sdl_video.my_drect.y; h2 =  sdl_video.my_srect.h; } else
+                          { rot = 0; sy3 = sdl_video.my_srect.y; dy3 = sdl_video.my_drect.y; h3 =  sdl_video.my_srect.h; }
 
             //which is lowest (or are they equal?)
-            if (sy1 <= sy2 && sy1 <= sy3) { sdl_video.srect.y = sy1; sdl_video.drect.y = sy1; } else
-            if (sy2 <= sy1 && sy2 <= sy3) { sdl_video.srect.y = sy2; sdl_video.drect.y = sy2; } else
-            if (sy3 <= sy1 && sy3 <= sy2) { sdl_video.srect.y = sy3; sdl_video.drect.y = sy3; }
+            if (sy1 <= sy2 && sy1 <= sy3) { sdl_video.my_srect.y = sy1; sdl_video.my_drect.y = sy1; } else
+            if (sy2 <= sy1 && sy2 <= sy3) { sdl_video.my_srect.y = sy2; sdl_video.my_drect.y = sy2; } else
+            if (sy3 <= sy1 && sy3 <= sy2) { sdl_video.my_srect.y = sy3; sdl_video.my_drect.y = sy3; }
 
             //what is the highest value of y+h?
-            if(sy1+h1 >= sy2+h2 && sy1+h1 >= sy3+h3) sdl_video.srect.h = sdl_video.drect.h = sy1+h1-sdl_video.srect.y;
-            if(sy2+h2 >= sy1+h1 && sy2+h2 >= sy3+h3) sdl_video.srect.h = sdl_video.drect.h = sy2+h2-sdl_video.srect.y;
-            if(sy3+h3 >= sy1+h1 && sy3+h3 >= sy2+h2) sdl_video.srect.h = sdl_video.drect.h = sy3+h3-sdl_video.srect.y;
+            if(sy1 + h1 >= sy2 + h2 && sy1 + h1 >= sy3 + h3) sdl_video.my_srect.h = sdl_video.my_drect.h = sy1 + h1 - sdl_video.my_srect.y; else
+            if(sy2 + h2 >= sy1 + h1 && sy2 + h2 >= sy3 + h3) sdl_video.my_srect.h = sdl_video.my_drect.h = sy2 + h2 - sdl_video.my_srect.y; else
+            if(sy3 + h3 >= sy1 + h1 && sy3 + h3 >= sy2 + h2) sdl_video.my_srect.h = sdl_video.my_drect.h = sy3 + h3 - sdl_video.my_srect.y;
           }//config.renderer < 2
+/*
           if (config.gcw0_fullscreen)
           {
             gcw0_w = sdl_video.drect.w;
             gcw0_h = sdl_video.drect.h;
           }
-          SDL_BlitSurface(sdl_video.surf_bitmap, &sdl_video.srect, sdl_video.surf_screen, &sdl_video.drect);
+*/
+          SDL_BlitSurface(sdl_video.surf_bitmap, &sdl_video.my_srect, sdl_video.surf_screen, &sdl_video.my_drect);
           skipval = 19;
         } //system = mcd or md
         else //for older systems we'll just blit, we don't need to optimise these further anyway.
