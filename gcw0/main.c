@@ -430,18 +430,16 @@ static void sdl_video_update()
       //remove left bar bug with SMS roms
         if ( (system_hw == SYSTEM_MARKIII) || (system_hw == SYSTEM_SMS) || (system_hw == SYSTEM_SMS2) || (system_hw == SYSTEM_PBC) )
         {
-            if (config.smsmaskleftbar)
-                sdl_video.srect.x = 8;
-            else
-                sdl_video.srect.x = 0;
+            if (config.smsmaskleftbar) sdl_video.srect.x = 8;
+            else                       sdl_video.srect.x = 0;
         }
-        else   sdl_video.srect.x = 0;
+//        else   sdl_video.srect.x = 0;
         sdl_video.srect.y = 0;
         sdl_video.srect.w = bitmap.viewport.w + (2 * bitmap.viewport.x);
         sdl_video.srect.h = bitmap.viewport.h + (2 * bitmap.viewport.y);
         if (sdl_video.srect.w > VIDEO_WIDTH)
         {
-            sdl_video.srect.x = (sdl_video.srect.w - VIDEO_WIDTH) / 2;
+//            sdl_video.srect.x = (sdl_video.srect.w - VIDEO_WIDTH) / 2;
             sdl_video.srect.w = VIDEO_WIDTH;
             if ( (system_hw == SYSTEM_MARKIII) || (system_hw == SYSTEM_SMS) || (system_hw == SYSTEM_SMS2) || (system_hw == SYSTEM_PBC) )
                 if (config.smsmaskleftbar)
@@ -456,7 +454,10 @@ static void sdl_video_update()
         /* destination bitmap */
         sdl_video.drect.w = sdl_video.srect.w;
         sdl_video.drect.h = sdl_video.srect.h;
-        sdl_video.drect.x = (VIDEO_WIDTH  - sdl_video.drect.w) / 2;
+
+//        sdl_video.drect.x = (VIDEO_WIDTH  - sdl_video.drect.w) / 2;
+        sdl_video.drect.x = 0; //testing
+
         sdl_video.drect.y = (VIDEO_HEIGHT - sdl_video.drect.h) / 2;
  
         /* clear destination surface */
@@ -520,7 +521,8 @@ static void sdl_video_update()
                 sdl_video.drect.w = sdl_video.srect.w;
             }
 
-/*
+/* 
+//this does not play nice with the custom blitter, off screen pixel changes mess everything up.
             if (strstr(rominfo.international,"Virtua Racing"))
             {
                 sdl_video.srect.y = (sdl_video.srect.h - VIDEO_HEIGHT) / 2 + 24;
@@ -606,7 +608,7 @@ static void sdl_video_update()
             if (sy2 <= sy1 && sy2 <= sy3) { sdl_video.my_srect.y = sy2; sdl_video.my_drect.y = sy2; } else
             if (sy3 <= sy1 && sy3 <= sy2) { sdl_video.my_srect.y = sy3; sdl_video.my_drect.y = sy3; }
 
-            //what is the highest value of y+h?
+            //what is the highest value of y + h?
             if(sy1 + h1 >= sy2 + h2 && sy1 + h1 >= sy3 + h3) sdl_video.my_srect.h = sdl_video.my_drect.h = sy1 + h1 - sdl_video.my_srect.y; else
             if(sy2 + h2 >= sy1 + h1 && sy2 + h2 >= sy3 + h3) sdl_video.my_srect.h = sdl_video.my_drect.h = sy2 + h2 - sdl_video.my_srect.y; else
             if(sy3 + h3 >= sy1 + h1 && sy3 + h3 >= sy2 + h2) sdl_video.my_srect.h = sdl_video.my_drect.h = sy3 + h3 - sdl_video.my_srect.y;
@@ -1060,7 +1062,6 @@ static int gcw0menu(void)
   //start menu loop
     while(gotomenu)
     {
-        int i;
         static int selectedoption = 0;
         char remap_text[256];
         char load_state_screenshot[256];
@@ -1117,7 +1118,7 @@ static int gcw0menu(void)
         switch(menustate)
         {
         case MAINMENU:
-            for(i=0; i<9; i++)
+            for(int i = 0; i < 9; i++)
             {
                 destination.x = 70;
                 destination.y = 70+(15*i);
@@ -1132,13 +1133,13 @@ static int gcw0menu(void)
             }
             break;
         case GRAPHICS_OPTIONS:
-            for(i=0; i<5; i++)
+            for(int i = 0; i < 5; i++)
             {
                 destination.x = 70;
-                destination.y = 70+(15*i);
+                destination.y = 70 + (15 * i);
                 destination.w = 100;
                 destination.h = 50;
-                if ((i+10) == selectedoption)
+                if ((i + 10) == selectedoption)
                     textSurface = TTF_RenderText_Solid(ttffont, gcw0menu_gfxlist[i], selected_text_color);
                 else
                     textSurface = TTF_RenderText_Solid(ttffont, gcw0menu_gfxlist[i], text_color);
@@ -1150,22 +1151,22 @@ static int gcw0menu(void)
             destination.w = 100; 
             destination.h = 50;
           //Renderer
-            destination.y = 70+(15*1);
+            destination.y = 70 + (15 * 1);
             textSurface = TTF_RenderText_Solid(ttffont, gcw0menu_renderer[config.renderer], selected_text_color);
             SDL_BlitSurface(textSurface, NULL, menuSurface, &destination);
             SDL_FreeSurface(textSurface);
           //Scaling
-            destination.y = 70+(15*2);
+            destination.y = 70 + (15 * 2);
             textSurface = TTF_RenderText_Solid(ttffont, gcw0menu_onofflist[config.gcw0_fullscreen], selected_text_color);
             SDL_BlitSurface(textSurface, NULL, menuSurface, &destination);
             SDL_FreeSurface(textSurface);
           //Aspect ratio
-            destination.y = 70+(15*3);
+            destination.y = 70 + (15 * 3);
             textSurface = TTF_RenderText_Solid(ttffont, gcw0menu_onofflist[config.keepaspectratio], selected_text_color);
             SDL_BlitSurface(textSurface, NULL, menuSurface, &destination);
             SDL_FreeSurface(textSurface);
           //Scanlines
-            destination.y = 70+(15*4);
+            destination.y = 70 + (15 * 4);
             textSurface = TTF_RenderText_Solid(ttffont, gcw0menu_onofflist[config.gg_scanlines], selected_text_color);
             SDL_BlitSurface(textSurface, NULL, menuSurface, &destination);
             SDL_FreeSurface(textSurface);
@@ -1180,12 +1181,12 @@ static int gcw0menu(void)
             textSurface = TTF_RenderText_Solid(ttffont, remap_text, text_color);
             SDL_BlitSurface(textSurface, NULL, menuSurface, &destination);
             SDL_FreeSurface(textSurface);
-            for(i=0; i < 9; i++)
+            for(int i = 0; i < 9; i++)
             {
                 if (!i)
                     sprintf(remap_text, gcw0menu_remapoptionslist[i]);  //for return option
                 else
-                    sprintf(remap_text, "%-5s                   %-7s", gcw0menu_remapoptionslist[i], gcw0_get_key_name(config.buttons[i-1]));
+                    sprintf(remap_text, "%-5s                   %-7s", gcw0menu_remapoptionslist[i], gcw0_get_key_name(config.buttons[i - 1]));
                 destination.x = 30;
                 if (!i)
                     destination.y = 60;
@@ -1193,7 +1194,7 @@ static int gcw0menu(void)
                     destination.y = 80 + (15 * i);
                 destination.w = 100;
                 destination.h = 50;
-                if ((i+20) == selectedoption)
+                if ((i + 20) == selectedoption)
                     textSurface = TTF_RenderText_Solid(ttffont, remap_text, selected_text_color);
                 else
                     textSurface = TTF_RenderText_Solid(ttffont, remap_text, text_color);
@@ -1203,7 +1204,7 @@ static int gcw0menu(void)
             break;
         case SAVE_STATE:
           //Show saved BMP as background if available
-            sprintf(load_state_screenshot,"%s/%s.%d.bmp", get_save_directory(), rom_filename, selectedoption-30);
+            sprintf(load_state_screenshot,"%s/%s.%d.bmp", get_save_directory(), rom_filename, selectedoption - 30);
             SDL_Surface* screenshot;
             screenshot = SDL_LoadBMP(load_state_screenshot);
             if (screenshot)
@@ -1239,13 +1240,13 @@ static int gcw0menu(void)
             SDL_BlitSurface(textSurface, NULL, menuSurface, &destination);
             SDL_FreeSurface(textSurface);
 
-            for(i=0; i<10; i++)
+            for(int i = 0; i < 10; i++)
             {
                 destination.x = 70;
-                destination.y = 70+(15*i);
+                destination.y = 70 + (15 * i);
                 destination.w = 100;
                 destination.h = 50;
-                if ((i+30) == selectedoption)
+                if ((i + 30) == selectedoption)
                     textSurface = TTF_RenderText_Solid(ttffont, gcw0menu_savestate[i], selected_text_color);
 	        else
                     textSurface = TTF_RenderText_Solid(ttffont, gcw0menu_savestate[i], text_color);
@@ -1257,7 +1258,7 @@ static int gcw0menu(void)
             if (!savestate)
             {
               //Show saved BMP as background if available
-                sprintf(load_state_screenshot,"%s/%s.%d.bmp", get_save_directory(), rom_filename, selectedoption-40);
+                sprintf(load_state_screenshot,"%s/%s.%d.bmp", get_save_directory(), rom_filename, selectedoption - 40);
                 screenshot = SDL_LoadBMP(load_state_screenshot);
                 if (screenshot)
                 {
@@ -1292,13 +1293,13 @@ static int gcw0menu(void)
                 textSurface = TTF_RenderText_Solid(ttffont, "Genesis Plus GX", text_color);
                 SDL_BlitSurface(textSurface, NULL, menuSurface, &destination);
                 SDL_FreeSurface(textSurface);
-                for(i=0; i<10; i++)
+                for(int i = 0; i < 10; i++)
                 {
                     destination.x = 70;
-                    destination.y = 70+(15*i);
+                    destination.y = 70 + (15 * i);
                     destination.w = 100;
                     destination.h = 50;
-                    if ((i+40) == selectedoption)
+                    if ((i + 40) == selectedoption)
 	                textSurface = TTF_RenderText_Solid(ttffont, gcw0menu_loadstate[i], selected_text_color);
 	            else
 	                textSurface = TTF_RenderText_Solid(ttffont, gcw0menu_loadstate[i], text_color);
@@ -1311,13 +1312,13 @@ static int gcw0menu(void)
             savestate = 0;
             break;
         case MISC_OPTIONS:
-            for(i=0; i<9; i++)
+            for(int i = 0; i < 9; i++)
             {
                 destination.x = 70;
-                destination.y = 70+(15*i);
+                destination.y = 70 + (15 * i);
                 destination.w = 100;
                 destination.h = 50;
-                if ((i+50) == selectedoption)
+                if ((i + 50) == selectedoption)
                     textSurface = TTF_RenderText_Solid(ttffont, gcw0menu_misc[i], selected_text_color);
                 else
                     textSurface = TTF_RenderText_Solid(ttffont, gcw0menu_misc[i], text_color);
@@ -1329,45 +1330,45 @@ static int gcw0menu(void)
             destination.w = 100; 
             destination.h = 50;
           //Optimisations
-            destination.y = 70+(15*1);
+            destination.y = 70 + (15 * 1);
     	    textSurface = TTF_RenderText_Solid(ttffont, gcw0menu_optimisations[config.optimisations], selected_text_color);
             SDL_BlitSurface(textSurface, NULL, menuSurface, &destination);
             SDL_FreeSurface(textSurface);
           //Save/load autoresume
-            destination.y = 70+(15*2);
+            destination.y = 70 + (15 * 2);
             textSurface = TTF_RenderText_Solid(ttffont, gcw0menu_onofflist[config.sl_autoresume], selected_text_color);
     	    SDL_BlitSurface(textSurface, NULL, menuSurface, &destination);
             SDL_FreeSurface(textSurface);
           //A-stick
-            destination.y = 70+(15*3);
+            destination.y = 70 + (15 * 3);
             textSurface = TTF_RenderText_Solid(ttffont, gcw0menu_onofflist[config.a_stick], selected_text_color);
     	    SDL_BlitSurface(textSurface, NULL, menuSurface, &destination);
             SDL_FreeSurface(textSurface);
           //A-stick sensitivity
-            destination.y = 70+(15*4);
+            destination.y = 70 + (15 * 4);
             textSurface = TTF_RenderText_Solid(ttffont, gcw0menu_deadzonelist[config.deadzone], selected_text_color);
     	    SDL_BlitSurface(textSurface, NULL, menuSurface, &destination);
             SDL_FreeSurface(textSurface);
           //Display Lock-on Types
             destination.x = 144;
-            destination.y = 70+(15*5);
+            destination.y = 70 + (15 * 5);
             textSurface = TTF_RenderText_Solid(ttffont, lock_on_desc[config.lock_on], selected_text_color);
     	    SDL_BlitSurface(textSurface, NULL, menuSurface, &destination);
             SDL_FreeSurface(textSurface);
           //FM sound(SMS)
             destination.x = 210;
-            destination.y = 70+(15*6);
+            destination.y = 70 + (15 * 6);
             textSurface = TTF_RenderText_Solid(ttffont, gcw0menu_onofflist[config.ym2413], selected_text_color);
     	    SDL_BlitSurface(textSurface, NULL, menuSurface, &destination);
             SDL_FreeSurface(textSurface);
           //Lightgun speed
             destination.x = 210;
-            destination.y = 70+(15*7);
+            destination.y = 70 + (15 * 7);
             textSurface = TTF_RenderText_Solid(ttffont, gcw0menu_numericlist[config.lightgun_speed], selected_text_color);
     	    SDL_BlitSurface(textSurface, NULL, menuSurface, &destination);
             SDL_FreeSurface(textSurface);
           //Lightgun Cursor
-            destination.y = 70+(15*8);
+            destination.y = 70 + (15 * 8);
             SDL_Surface *lightgunSurface;
             lightgunSurface = IMG_Load(cursor[config.cursor]);
             static int lightgun_af_demo = 0;
@@ -1403,7 +1404,7 @@ static int gcw0menu(void)
 #ifdef SDL2
 //TODO skip this to allow compile for now
 #else
-        SDL_EnableKeyRepeat(0,0);
+        SDL_EnableKeyRepeat(0, 0);
 #endif
         static int keyheld = 0;
         SDL_Event event;
@@ -1721,9 +1722,27 @@ static int gcw0menu(void)
         { 
             sdl_video.drect.w = sdl_video.srect.w;
             sdl_video.drect.h = sdl_video.srect.h;
+
+            sdl_video.drect.y = 0;
             sdl_video.drect.x = sdl_video.drect.y = 0;
             gcw0_w = sdl_video.drect.w;
             gcw0_h = sdl_video.drect.h;
+
+//added
+            old_srect_y = sdl_video.srect.y;
+            old_drect_y = sdl_video.drect.y;
+            drawn_from_line = 0;
+            sy1 = sy2 = sy3 = sdl_video.srect.y;
+            dy1 = dy2 = dy3 = sdl_video.drect.y;
+            h1  =  h2 =  h3 = sdl_video.srect.h;
+            sdl_video.my_srect.x = sdl_video.srect.x;
+            sdl_video.my_srect.y = sdl_video.srect.y;
+            sdl_video.my_srect.w = sdl_video.srect.w;
+            sdl_video.my_srect.h = sdl_video.srect.h;
+            sdl_video.my_drect.x = sdl_video.drect.x;
+            sdl_video.my_drect.y = sdl_video.drect.y;
+            sdl_video.my_drect.w = sdl_video.drect.w;
+            sdl_video.my_drect.h = sdl_video.drect.h;
 #ifdef SDL2
 #else
             if     (config.renderer == 0) sdl_video.surf_screen  = SDL_SetVideoMode(gcw0_w,gcw0_h, 16, SDL_HWSURFACE | SDL_TRIPLEBUF);
@@ -1742,15 +1761,13 @@ static int gcw0menu(void)
     }
 #ifdef SDL2
     SDL_SetRenderDrawColor(renderer, 0, 0, 0, 0);
-    SDL_RenderClear(renderer);
-    SDL_RenderPresent(renderer);
-    SDL_RenderClear(renderer);
-    SDL_RenderPresent(renderer);
-    SDL_RenderClear(renderer);
-    SDL_RenderPresent(renderer);
+    for(int i = 0; i < 3; i++)
+    {
+        SDL_RenderClear(renderer);
+        SDL_RenderPresent(renderer);
+    }
 #else
-    int i;
-    for(i=0; i<3; i++)
+    for(int i = 0; i < 3; i++)
     {
         SDL_FillRect(sdl_video.surf_screen, 0, 0);
         if(config.renderer < 2) SDL_Flip      (sdl_video.surf_screen            );
