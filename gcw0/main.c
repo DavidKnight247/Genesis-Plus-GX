@@ -709,7 +709,7 @@ static void sdl_video_update()
         if(!do_not_blit)
         {
           if(config.renderer < 2) SDL_Flip      (sdl_video.surf_screen            );
-          else                    SDL_UpdateRect(sdl_video.surf_screen, 0, 0, 0, 0);
+          else                    SDL_UpdateRect(sdl_video.surf_screen, sdl_video.my_drect.x, sdl_video.my_drect.y, sdl_video.my_drect.w, sdl_video.my_drect.h);
         }
         else if(show_lightgun)
         {
