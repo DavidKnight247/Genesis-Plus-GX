@@ -42,6 +42,7 @@
 #include "shared.h"
 #include "eq.h"
 
+
 /* Global variables */
 t_bitmap bitmap;
 t_snd snd;
@@ -49,7 +50,11 @@ uint32 mcycles_vdp;
 uint8 system_hw;
 uint8 system_bios;
 uint32 system_clock;
-int16 SVP_cycles = 800; 
+#ifdef GCWZERO
+#define SVP_CYCLES 800
+#else
+uint16 SVP_cycles = 800;
+#endif
 
 static uint8 pause_b;
 static EQSTATE eq;
@@ -521,7 +526,11 @@ void system_frame_gen(int do_skip)
   /* run SVP chip */
   if (svp)
   {
+#ifdef GCWZERO
+    ssp1601_run(SVP_CYCLES);
+#else
     ssp1601_run(SVP_cycles);
+#endif
   }
 
   /* update VDP cycle count */
@@ -586,7 +595,11 @@ int lines_per_frame_adjusted = lines_per_frame-1;
     /* run SVP chip */
     if (svp)
     {
+#ifdef GCWZERO
+      ssp1601_run(SVP_CYCLES);
+#else
       ssp1601_run(SVP_cycles);
+#endif
     }
 
     /* update VDP cycle count */
@@ -645,7 +658,11 @@ int lines_per_frame_adjusted = lines_per_frame-1;
   /* run SVP chip */
   if (svp)
   {
+#ifdef GCWZERO
+    ssp1601_run(SVP_CYCLES);
+#else
     ssp1601_run(SVP_cycles);
+#endif
   }
 
   /* update VDP cycle count */
@@ -709,7 +726,11 @@ int lines_per_frame_adjusted = lines_per_frame-1;
     /* run SVP chip */
     if (svp)
     {
+#ifdef GCWZERO
+      ssp1601_run(SVP_CYCLES);
+#else
       ssp1601_run(SVP_cycles);
+#endif
     }
 
     /* update VDP cycle count */
@@ -1020,7 +1041,7 @@ void system_frame_scd(int do_skip)
 
   /* reset line count */
   line = 0;
-  
+
   /* Active Display */
   do
   {

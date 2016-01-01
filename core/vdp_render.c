@@ -43,13 +43,12 @@
 #include "md_ntsc.h"
 #include "sms_ntsc.h"
 
-#ifdef GCWZERO
-uint8 do_not_blit = 1;
-int drawn_from_line = 0; //extern
-int drawn_to_line = 1; //extern
-int pixel_changed = 0;
-int bg_start = 0;
-int bg_end = 0;
+#ifdef GCW0_ALT_BLITTER
+unsigned int do_not_blit = 1;
+unsigned int draw_from_line = 0;
+unsigned int draw_to_line = 1;
+unsigned int draw_from_line_temp = 0;
+unsigned int draw_to_line_temp = 1;
 #endif
 
 /*** NTSC Filters ***/
@@ -275,10 +274,10 @@ INLINE void WRITE_LONG(void *address, uint32 data)
 
 #ifdef LSB_FIRST
 #define DRAW_BG_TILE(SRC_A, SRC_B) \
-  *lb++ = table[((SRC_B << 8) & 0xff00) | (SRC_A & 0xff)]; \
-  *lb++ = table[(SRC_B & 0xff00) | ((SRC_A >> 8) & 0xff)]; \
-  *lb++ = table[((SRC_B >> 8) & 0xff00) | ((SRC_A >> 16) & 0xff)]; \
-  *lb++ = table[((SRC_B >> 16) & 0xff00) | ((SRC_A >> 24) & 0xff)];
+  *lb++ = table[ ((SRC_B << 8)   & 0xff00) | ( SRC_A        & 0xff)]; \
+  *lb++ = table[ (SRC_B          & 0xff00) | ( (SRC_A >> 8) & 0xff)]; \
+  *lb++ = table[ ( (SRC_B >> 8)  & 0xff00) | ((SRC_A >> 16) & 0xff)]; \
+  *lb++ = table[ ( (SRC_B >> 16) & 0xff00) | ((SRC_A >> 24) & 0xff)];
 #else
 #define DRAW_BG_TILE(SRC_A, SRC_B) \
   *lb++ = table[((SRC_B >> 16) & 0xff00) | ((SRC_A >> 24) & 0xff)]; \
@@ -469,7 +468,6 @@ INLINE void WRITE_LONG(void *address, uint32 data)
       } \
     } \
   }
-
 
 /* Pixels conversion macro */
 /* 4-bit color channels are either compressed to 2/3-bit or dithered to 5/6/8-bit equivalents */
@@ -672,24 +670,6 @@ static void make_bp_lut(void)
   for(j = 0; j < 0x100; j++)
   {
     out = 0;
-#ifdef GCWZERO
-      out |= (j & (0x80 >> 0)) ? (uint32)(8 << (0 << 2)) : 0;
-      out |= (i & (0x80 >> 0)) ? (uint32)(4 << (0 << 2)) : 0;
-      out |= (j & (0x80 >> 1)) ? (uint32)(8 << (1 << 2)) : 0;
-      out |= (i & (0x80 >> 1)) ? (uint32)(4 << (1 << 2)) : 0;
-      out |= (j & (0x80 >> 2)) ? (uint32)(8 << (2 << 2)) : 0;
-      out |= (i & (0x80 >> 2)) ? (uint32)(4 << (2 << 2)) : 0;
-      out |= (j & (0x80 >> 3)) ? (uint32)(8 << (3 << 2)) : 0;
-      out |= (i & (0x80 >> 3)) ? (uint32)(4 << (3 << 2)) : 0;
-      out |= (j & (0x80 >> 4)) ? (uint32)(8 << (4 << 2)) : 0;
-      out |= (i & (0x80 >> 4)) ? (uint32)(4 << (4 << 2)) : 0;
-      out |= (j & (0x80 >> 5)) ? (uint32)(8 << (5 << 2)) : 0;
-      out |= (i & (0x80 >> 5)) ? (uint32)(4 << (5 << 2)) : 0;
-      out |= (j & (0x80 >> 6)) ? (uint32)(8 << (6 << 2)) : 0;
-      out |= (i & (0x80 >> 6)) ? (uint32)(4 << (6 << 2)) : 0;
-      out |= (j & (0x80 >> 7)) ? (uint32)(8 << (7 << 2)) : 0;
-      out |= (i & (0x80 >> 7)) ? (uint32)(4 << (7 << 2)) : 0;
-#else
     for(x = 0; x < 8; x++)
     {
       /* pixel line data = hh00gg00ff00ee00dd00cc00bb00aa00 (32-bit) */
@@ -697,8 +677,6 @@ static void make_bp_lut(void)
       out |= (j & (0x80 >> x)) ? (uint32)(8 << (x << 2)) : 0;
       out |= (i & (0x80 >> x)) ? (uint32)(4 << (x << 2)) : 0;
     }
-#endif
-
     /* i = low byte in VRAM  (bp0 or bp2) */
     /* j = high byte in VRAM (bp1 or bp3) */
  #ifdef LSB_FIRST
@@ -973,23 +951,31 @@ static uint32 make_lut_bgobj_m4(uint32 bx, uint32 sx)
 
 INLINE void merge(uint8 *srca, uint8 *srcb, uint8 *dst, uint8 *table, int width)
 {
+#ifdef GCWZERO
+unsigned int width_div_sixteen = width * 0.0625;
   do
   {
-#ifdef GCWZERO2
-for(int i=0; i<16; i++)
-{
-if( *dst != table[(*srcb << 8) | (*srca)])
-{
-pixel_changed = 1;
-    *dst = table[(*srcb << 8) | (*srca)];
-}*dst++;
-*srcb++;
-*srca++;
-}
-width -= 16;
+    *dst++ = table[(*srcb++ << 8) | (*srca++)];
+    *dst++ = table[(*srcb++ << 8) | (*srca++)];
+    *dst++ = table[(*srcb++ << 8) | (*srca++)];
+    *dst++ = table[(*srcb++ << 8) | (*srca++)];
+    *dst++ = table[(*srcb++ << 8) | (*srca++)];
+    *dst++ = table[(*srcb++ << 8) | (*srca++)];
+    *dst++ = table[(*srcb++ << 8) | (*srca++)];
+    *dst++ = table[(*srcb++ << 8) | (*srca++)];
+    *dst++ = table[(*srcb++ << 8) | (*srca++)];
+    *dst++ = table[(*srcb++ << 8) | (*srca++)];
+    *dst++ = table[(*srcb++ << 8) | (*srca++)];
+    *dst++ = table[(*srcb++ << 8) | (*srca++)];
+    *dst++ = table[(*srcb++ << 8) | (*srca++)];
+    *dst++ = table[(*srcb++ << 8) | (*srca++)];
+    *dst++ = table[(*srcb++ << 8) | (*srca++)];
+    *dst++ = table[(*srcb++ << 8) | (*srca++)];
   }
-  while (width>15);
+  while (--width_div_sixteen);
 #else
+  do
+  {
     *dst++ = table[(*srcb++ << 8) | (*srca++)];
   }
   while (--width);
@@ -1690,18 +1676,7 @@ void render_bg_m5(int line)
   }
 
   /* Merge background layers */
-#ifdef GCWZERO2
-pixel_changed = 0;
   merge(&linebuf[1][0x20], &linebuf[0][0x20], &linebuf[0][0x20], lut[(reg[12] & 0x08) >> 2], bitmap.viewport.w);
-if(pixel_changed && bg_start == 1)
-{
-  bg_start = line;
-  do_not_blit = 0;
-}
-else if(pixel_changed && bgstart > 1) bg_end = line;
-#else
-  merge(&linebuf[1][0x20], &linebuf[0][0x20], &linebuf[0][0x20], lut[(reg[12] & 0x08) >> 2], bitmap.viewport.w);
-#endif
 }
 
 void render_bg_m5_vs(int line)
@@ -1891,14 +1866,7 @@ void render_bg_m5_vs(int line)
   }
 
   /* Merge background layers */
-#ifdef GCWZERO2
-pixel_changed = 0;
   merge(&linebuf[1][0x20], &linebuf[0][0x20], &linebuf[0][0x20], lut[(reg[12] & 0x08) >> 2], bitmap.viewport.w);
-if(pixel_changed && bg_start == 1) bg_start = line;
-else if(pixel_changed && bgstart > 1) bg_end = line;
-#else
-  merge(&linebuf[1][0x20], &linebuf[0][0x20], &linebuf[0][0x20], lut[(reg[12] & 0x08) >> 2], bitmap.viewport.w);
-#endif
 }
 
 void render_bg_m5_im2(int line)
@@ -2050,14 +2018,7 @@ void render_bg_m5_im2(int line)
   }
 
   /* Merge background layers */
-#ifdef GCWZERO2
-pixel_changed = 0;
   merge(&linebuf[1][0x20], &linebuf[0][0x20], &linebuf[0][0x20], lut[(reg[12] & 0x08) >> 2], bitmap.viewport.w);
-if(pixel_changed && bg_start == 1) bg_start = line;
-else if(pixel_changed && bgstart > 1) bg_end = line;
-#else
-  merge(&linebuf[1][0x20], &linebuf[0][0x20], &linebuf[0][0x20], lut[(reg[12] & 0x08) >> 2], bitmap.viewport.w);
-#endif
 }
 
 void render_bg_m5_im2_vs(int line)
@@ -2248,14 +2209,7 @@ void render_bg_m5_im2_vs(int line)
   }
 
   /* Merge background layers */
-#ifdef GCWZERO2
-pixel_changed = 0;
   merge(&linebuf[1][0x20], &linebuf[0][0x20], &linebuf[0][0x20], lut[(reg[12] & 0x08) >> 2], bitmap.viewport.w);
-if(pixel_changed && bg_start == 1) bg_start = line;
-else if(pixel_changed && bgstart > 1) bg_end = line;
-#else
-  merge(&linebuf[1][0x20], &linebuf[0][0x20], &linebuf[0][0x20], lut[(reg[12] & 0x08) >> 2], bitmap.viewport.w);
-#endif
 }
 
 #else
@@ -4168,6 +4122,29 @@ void render_reset(void)
 /*--------------------------------------------------------------------------*/
 void render_line(int line)
 {
+#ifdef GCW0_ALT_BLITTER
+    /* New frame, reset all draw parameters */
+    if(line & 1)
+    {
+      //save previous values to prevent flicker in triple buffering later
+      static int dfl1, dfl2, dfl3 = 0;
+      static int dtl1, dtl2, dtl3 = 0;
+      static int rotbv = 0;
+      if(rotbv == 0) {           dfl1 = draw_from_line_temp; dtl1 = draw_to_line_temp; } else
+      if(rotbv == 1) {           dfl2 = draw_from_line_temp; dtl2 = draw_to_line_temp; } else
+                     {rotbv = 0; dfl3 = draw_from_line_temp; dtl3 = draw_to_line_temp; }
+      rotbv++;
+
+      if(dfl1 <= dfl2 && dfl1 <= dfl3) draw_from_line = dfl1; else
+      if(dfl2 <= dfl1 && dfl2 <= dfl3) draw_from_line = dfl2; else
+      if(dfl3 <= dfl1 && dfl3 <= dfl2) draw_from_line = dfl3;
+      if(dtl1 >= dtl2 && dtl1 >= dtl3) draw_to_line = dtl1; else
+      if(dtl2 >= dtl1 && dtl2 >= dtl3) draw_to_line = dtl2; else
+      if(dtl3 >= dtl1 && dtl3 >= dtl2) draw_to_line = dtl3;
+      draw_from_line_temp = draw_to_line_temp = 0;
+    }
+#endif
+
   /* Check display status */
   if (reg[1] & 0x40)
   {
@@ -4179,8 +4156,6 @@ void render_line(int line)
     }
 
     /* Render BG layer(s) */
-//if(line % 2)
-if(line == 1) bg_start = bg_end = 1;
     render_bg(line);
 
     /* Render sprite layer */
@@ -4263,6 +4238,7 @@ void remap_line(int line)
 
 #if defined(USE_15BPP_RENDERING) || defined(USE_16BPP_RENDERING)
   /* NTSC Filter (only supported for 15 or 16-bit pixels rendering) */
+/*
   if (config.ntsc)
   {
     if (reg[12] & 0x01)
@@ -4275,67 +4251,65 @@ void remap_line(int line)
     }
   }
   else
+*/
 #endif
   {
 #ifdef CUSTOM_BLITTER
     CUSTOM_BLITTER(line, width, pixel, src)
 #else
-#ifdef GCWZERO //Custom blitter
-/********************************************************************
- * The GCW0 needs an optimised custom blitter, we first identify    *
- * if the line contains any different pixels, we only change the    *
- * pixels which need changing. We find the first and last line      *
- * where this happens, then we blit in between these values.        *
- * Lastly, if there are no changes in pixels, we don't blit or flip *
- * saving valuable cpu cycles :)                                    *
- * The code detects the lines, the rest will occur in main.c        *
- ********************************************************************/
-    PIXEL_OUT_T *dst = ((PIXEL_OUT_T *)&bitmap.data[(line * bitmap.pitch)]);
-    if(!do_not_blit) //we're already blitting
-    {
-      while (width)
+#ifdef GCW0_ALT_BLITTER //Custom blitter
+      // only figure out min and max y values (quicker)
+      PIXEL_OUT_T *dst = ((PIXEL_OUT_T *)&bitmap.data[(line * bitmap.pitch)]);
+      PIXEL_OUT_T b = 0;
+      unsigned int dtl = 0;
+      if(!do_not_blit) //we're already blitting
       {
-        width -= 16;
-        for(int a = 0; a < 16; a++)
+//        if(draw_to_line > line) dtl = 1;
+        do
         {
-          if(*dst != pixel[*src])
+          if(dtl)
+            *dst++ = pixel[*src++];
+          else
           {
-            *dst = pixel[*src];
-            if(drawn_to_line < line)
-              drawn_to_line = line; //define the last line
+            b = pixel[*src++];
+            if(*dst != b)
+            {
+              *dst++ = b;
+              if(!dtl) dtl = !dtl;
+            }
+            else *dst++;
           }
-          //check next pixel
-          *dst++;
-          *src++;
-        }
+        } while(--width);
+        if(dtl && draw_to_line_temp < line)  draw_to_line_temp = line; //define the last line
       }
-    }
-    else //we might not need to blit...check for changes to the image.
-    {
-      int dnb = do_not_blit;
-      while (width)
+      else //we might not need to blit...check for changes to the image.
       {
-        width -= 16;
-        for(int a = 0; a < 16; a++)
+        unsigned int dnb = do_not_blit;
+//        if(line == draw_from_line) do_not_blit = dnb = 0;
+        do
         {
-          if(*dst != pixel[*src])
+          b = pixel[*src++];
+          if(*dst != b)
           {
-            *dst = pixel[*src];
+            *dst++ = b;
             if(dnb) dnb = !dnb;
           }
-          *dst++;
-          *src++;
+          else *dst++;
+        } while (--width);
+        if(!dnb)
+        {
+          draw_from_line_temp = line ; //define the last line as well, for now they are the same.
+          if(draw_to_line_temp < line) draw_to_line_temp = line;
+          do_not_blit = 0;
         }
       }
-      if(!dnb)
-      {
-        drawn_from_line = drawn_to_line = line ; //define the last line as well, for now they are the same.
-        do_not_blit = 0;
-      }
-    }
+if(draw_from_line > draw_from_line_temp) draw_from_line = draw_from_line_temp;
+if(draw_to_line < draw_to_line_temp) draw_from_line = draw_from_line_temp;
+
 #else
     /* Convert VDP pixel data to output pixel format */
     PIXEL_OUT_T *dst = ((PIXEL_OUT_T *)&bitmap.data[(line * bitmap.pitch)]);
+/*
     if (config.lcd)
     {
       do
@@ -4345,12 +4319,34 @@ void remap_line(int line)
       while (--width);
     }
     else
+*/
     {
+for(int i=width;i!=0;i-=16)
+{
+        *dst++ = pixel[*src++];
+        *dst++ = pixel[*src++];
+        *dst++ = pixel[*src++];
+        *dst++ = pixel[*src++];
+        *dst++ = pixel[*src++];
+        *dst++ = pixel[*src++];
+        *dst++ = pixel[*src++];
+        *dst++ = pixel[*src++];
+        *dst++ = pixel[*src++];
+        *dst++ = pixel[*src++];
+        *dst++ = pixel[*src++];
+        *dst++ = pixel[*src++];
+        *dst++ = pixel[*src++];
+        *dst++ = pixel[*src++];
+        *dst++ = pixel[*src++];
+        *dst++ = pixel[*src++];
+}
+/*
       do
       {
         *dst++ = pixel[*src++];
       }
       while (--width);
+*/
     }
 #endif //gcwzero
 #endif

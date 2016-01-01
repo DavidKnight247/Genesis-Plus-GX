@@ -619,7 +619,7 @@ void vdp_dma_update(unsigned int cycles)
   }
 
   /* Process DMA */
-  if (dma_bytes > 0)
+  if (dma_bytes)
   {
     /* Update DMA length */
     dma_length -= dma_bytes;

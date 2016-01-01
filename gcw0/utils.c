@@ -1,6 +1,9 @@
+#ifdef DINGOO
+#include "stat.h"
+#else
 #include <sys/stat.h>
+#endif
 #include <dirent.h>
-
 #include "utils.h"
 #include "osd.h"
 
@@ -51,14 +54,14 @@ void create_default_directories(void) {
     }
 }
 
-char* get_save_directory(void) {
-	const char *homedir;
-	const char *system_dir;
+char* get_save_directory(void)
+{
+    const char *homedir;
+    const char *system_dir;
     char* pathname=malloc(MAXPATHLEN);
 
     if ((homedir = getenv("HOME")) == NULL)
         homedir = getpwuid(getuid())->pw_dir;
-  
     if      (system_hw <= SYSTEM_MARKIII                            ) system_dir = "/saves/sg";
     else if (system_hw  > SYSTEM_MARKIII && system_hw <= SYSTEM_SMS2) system_dir = "/saves/ms";
     else if (system_hw  > SYSTEM_SMS2    && system_hw <= SYSTEM_GGMS) system_dir = "/saves/gg";
@@ -67,9 +70,7 @@ char* get_save_directory(void) {
     else		                                                      system_dir = "/saves/";
 
     sprintf (pathname, "%s%s%s", homedir, DEFAULT_PATH, system_dir);
-    
     return pathname;
-	
 }
 
 char* gcw0_get_key_name(int keycode)
@@ -96,12 +97,11 @@ char *get_file_name(char *full_path)
 {
     char* file_name=malloc(256);
     sprintf(file_name, "%s", basename(full_path));
-	
+
     /* remove file extension */
     int i = strlen(file_name) - 1;
     while ((i > 0) && (file_name[i] != '.')) i--;
     if (i > 0) file_name[i] = 0;
-	
+
     return file_name;
 }
-

@@ -65,14 +65,8 @@ typedef struct
 #else
   SDLKey buttons[8];
 #endif
-  //SDLKey button_a;
-  //SDLKey button_b;
-  //SDLKey button_c;
-  //SDLKey button_x;
-  //SDLKey button_y;
-  //SDLKey button_z;
-  //SDLKey button_start;
-  //SDLKey button_mode;
+  uint8 use_sound;
+  uint8 skip_prevention;
 } t_config;
 
 /* Global variables */

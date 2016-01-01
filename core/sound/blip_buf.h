@@ -21,9 +21,13 @@ blip_t* blip_new( int sample_count );
 clock_rate input clocks, approximately sample_rate samples are generated. */
 void blip_set_rates( blip_t*, double clock_rate, double sample_rate );
 
+#ifdef GCWZERO
+#define BLIP_MAX_RATIO 1048576
+#else
 enum { /** Maximum clock_rate/sample_rate ratio. For a given sample_rate,
 clock_rate must not be greater than sample_rate*blip_max_ratio. */
 blip_max_ratio = 1 << 20 };
+#endif
 
 /** Clears entire buffer. Afterwards, blip_samples_avail() == 0. */
 void blip_clear( blip_t* );

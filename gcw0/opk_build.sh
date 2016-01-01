@@ -1,5 +1,5 @@
 #!/bin/sh
-make
+make -f Makefile.gcw
 
 echo "Stripping binary"
 mipsel-linux-strip gen_gcw0;

@@ -98,12 +98,10 @@
 
 /* Global variables */
 extern uint16 spr_col;
-#ifdef GCWZERO
-extern int drawn_from_line;
-extern int drawn_to_line;
-extern uint8 do_not_blit;
-extern int bg_start;
-extern int bg_end;
+#ifdef GCW0_ALT_BLITTER
+extern unsigned int draw_from_line;
+extern unsigned int draw_to_line;
+extern unsigned int do_not_blit;
 #endif
 /* Function prototypes */
 extern void render_init(void);

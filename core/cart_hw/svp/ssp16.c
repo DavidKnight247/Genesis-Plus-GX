@@ -839,6 +839,32 @@ static u32 ptr1_read_(int ri, int isj2, int modi3)
   unsigned char *rp = NULL;
   switch (t)
   {
+    /* mod=3 (11), "+" */
+    case 0x18:
+    case 0x19:
+    case 0x1a: rp = &ssp->ptr.bank.r0[t&3]; t = ssp->mem.bank.RAM0[*rp];
+               if (!(rST&7)) { (*rp)++; return t; }
+               add = 1; goto modulo;
+    case 0x1b: return ssp->mem.bank.RAM0[3];
+    case 0x1c:
+    case 0x1d:
+    case 0x1e: rp = &ssp->ptr.bank.r1[t&3]; t = ssp->mem.bank.RAM1[*rp];
+               if (!(rST&7)) { (*rp)++; return t; }
+               add = 1; goto modulo;
+    case 0x1f: return ssp->mem.bank.RAM1[3];
+    /* mod=2 (10), "-" */
+    case 0x10:
+    case 0x11:
+    case 0x12: rp = &ssp->ptr.bank.r0[t&3]; t = ssp->mem.bank.RAM0[*rp];
+               if (!(rST&7)) { (*rp)--; return t; }
+               add = -1; goto modulo;
+    case 0x13: return ssp->mem.bank.RAM0[2];
+    case 0x14:
+    case 0x15:
+    case 0x16: rp = &ssp->ptr.bank.r1[t&3]; t = ssp->mem.bank.RAM1[*rp];
+               if (!(rST&7)) { (*rp)--; return t; }
+               add = -1; goto modulo;
+    case 0x17: return ssp->mem.bank.RAM1[2];
     /* mod=0 (00) */
     case 0x00:
     case 0x01:
@@ -857,32 +883,6 @@ static u32 ptr1_read_(int ri, int isj2, int modi3)
     case 0x0d:
     case 0x0e: return ssp->mem.bank.RAM1[ssp->ptr.bank.r1[t&3]++];
     case 0x0f: return ssp->mem.bank.RAM1[1];
-    /* mod=2 (10), "-" */
-    case 0x10:
-    case 0x11:
-    case 0x12: rp = &ssp->ptr.bank.r0[t&3]; t = ssp->mem.bank.RAM0[*rp];
-               if (!(rST&7)) { (*rp)--; return t; }
-               add = -1; goto modulo;
-    case 0x13: return ssp->mem.bank.RAM0[2];
-    case 0x14:
-    case 0x15:
-    case 0x16: rp = &ssp->ptr.bank.r1[t&3]; t = ssp->mem.bank.RAM1[*rp];
-               if (!(rST&7)) { (*rp)--; return t; }
-               add = -1; goto modulo;
-    case 0x17: return ssp->mem.bank.RAM1[2];
-    /* mod=3 (11), "+" */
-    case 0x18:
-    case 0x19:
-    case 0x1a: rp = &ssp->ptr.bank.r0[t&3]; t = ssp->mem.bank.RAM0[*rp];
-               if (!(rST&7)) { (*rp)++; return t; }
-               add = 1; goto modulo;
-    case 0x1b: return ssp->mem.bank.RAM0[3];
-    case 0x1c:
-    case 0x1d:
-    case 0x1e: rp = &ssp->ptr.bank.r1[t&3]; t = ssp->mem.bank.RAM1[*rp];
-               if (!(rST&7)) { (*rp)++; return t; }
-               add = 1; goto modulo;
-    case 0x1f: return ssp->mem.bank.RAM1[3];
   }
 
   return 0;

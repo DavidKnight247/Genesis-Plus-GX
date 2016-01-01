@@ -4,41 +4,42 @@ t_config config;
 
 static int config_load(void)
 {
-	//TODO: extract to function
-	const char *homedir;
-    if ((homedir = getenv("HOME")) == NULL) {
+    const char *homedir;
+    if ((homedir = getenv("HOME")) == NULL)
         homedir = getpwuid(getuid())->pw_dir;
-    }
-    
-	/* open configuration file */
-	char fname[MAXPATHLEN];
-    sprintf (fname, "%s%s/config.ini", homedir, DEFAULT_PATH);
-	FILE *fp = fopen(fname, "rb");
-	if (fp)
-	{
-		/* check file size */
-		fseek(fp, 0, SEEK_END);
-		if (ftell(fp) != sizeof(config))
-		{
-			fclose(fp);
-			return 0;
-		}
 
-		/* read file */
-		fseek(fp, 0, SEEK_SET);
-		fread(&config, sizeof(config), 1, fp);
-		fclose(fp);
-		return 1;
-	}
-				
-	return 0;
+    /* open configuration file */
+    char fname[MAXPATHLEN];
+    sprintf (fname, "%s%s/config.ini", homedir, DEFAULT_PATH);
+    FILE *fp = fopen(fname, "rb");
+    if (fp)
+    {
+        /* check file size */
+        fseek(fp, 0, SEEK_END);
+        if (ftell(fp) != sizeof(config))
+        {
+            fclose(fp);
+            return 0;
+        }
+
+        /* read file */
+        fseek(fp, 0, SEEK_SET);
+        fread(&config, sizeof(config), 1, fp);
+        fclose(fp);
+        return 1;
+    }
+    return 0;
 }
 
 
 void set_config_defaults(void)
 {
     int i;
+
     /* sound options */
+    config.use_sound      = 1; /* 0 = OFF, 1 = ON */
+    config.skip_prevention = 0; /* 0 = OFF, 1 = ON */
+    config.ym2413         = 1; /* = AUTO (0 = always OFF, 1 = always ON) */
     config.psg_preamp     = 150;
     config.fm_preamp      = 100;
     config.hq_fm          = 1;
@@ -51,7 +52,6 @@ void set_config_defaults(void)
     config.hg             = 1.0;
     config.lp_range       = 0x9999; /* 0.6 in 16.16 fixed point */
     config.dac_bits       = 14;
-    config.ym2413         = 1; /* = AUTO (0 = always OFF, 1 = always ON) */
     config.mono           = 0;
 
     /* system options */
@@ -80,6 +80,7 @@ void set_config_defaults(void)
     config.optimisations    = 0;    /* 0 = Off, 1 = On(Conservative), 2 = On(Performance). Only affects MCD games and Virtua Racing */
     config.deadzone         = 2;    /* Analogue joystick deadzone. Lower values are more sensitive but prone to accidental movement */
     config.renderer         = 0;    /* 0 = Triple buffering, 1 = Double buffering, 2 = Software rendering */
+
     /* controllers options */
     config.cursor         = 0;  /* different cursor designs */
     input.system[0]       = SYSTEM_GAMEPAD;
@@ -89,39 +90,32 @@ void set_config_defaults(void)
     config.invert_mouse   = 0;
     for (i=0; i<MAX_INPUTS; i++)
     {
-        /* autodetected control pad type */
+        /* autodetect control pad type */
         config.input[i].padtype = DEVICE_PAD2B | DEVICE_PAD3B | DEVICE_PAD6B;
     }
-    
-	config.buttons[A] 		= SDLK_LSHIFT;//x
-	config.buttons[B] 		= SDLK_LALT;//b
-	config.buttons[C] 		= SDLK_LCTRL;//a
-	config.buttons[X] 		= SDLK_TAB;//l
-	config.buttons[Y] 		= SDLK_SPACE;//y
-	config.buttons[Z] 		= SDLK_BACKSPACE;//r
-	config.buttons[START]           = SDLK_RETURN;//start
-	config.buttons[MODE] 	        = SDLK_ESCAPE;//select
-    
+    config.buttons[A]     = SDLK_LSHIFT;   //x
+    config.buttons[B]     = SDLK_LALT;     //b
+    config.buttons[C]     = SDLK_LCTRL;    //a
+    config.buttons[X]     = SDLK_TAB;      //l
+    config.buttons[Y]     = SDLK_SPACE;    //y
+    config.buttons[Z]     = SDLK_BACKSPACE;//r
+    config.buttons[START] = SDLK_RETURN;   //start
+    config.buttons[MODE]  = SDLK_ESCAPE;   //select
+
     /* try to restore user config */
-	int loaded = config_load();
-	if (!loaded) {
-		printf("Default Settings restored\n");
-	}
+    int loaded = config_load();
+    if (!loaded) printf("Default Settings restored\n");
 }
 
 
 void config_save(void)
 {
-	//TODO: extract to function
     const char *homedir;
-    if ((homedir = getenv("HOME")) == NULL) {
-        homedir = getpwuid(getuid())->pw_dir;
-    }
+    if ((homedir = getenv("HOME")) == NULL) homedir = getpwuid(getuid())->pw_dir;
 
     /* open configuration file */
     char fname[MAXPATHLEN];
     sprintf (fname, "%s%s/config.ini", homedir, DEFAULT_PATH);
-    //printf(fname);
     FILE *fp = fopen(fname, "wb");
     if (fp)
     {
@@ -130,4 +124,3 @@ void config_save(void)
         fclose(fp);
     }
 }
-

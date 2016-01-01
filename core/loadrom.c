@@ -726,7 +726,7 @@ int load_rom(char *filename)
   }
 
   /* ROM cartridge with CD loaded */
-  else if (cdd.loaded)
+  else if ((cart.romsize <= 0x800000)&& cdd.loaded)
   {
     /* try to load CD BOOTROM */
     if (load_bios(SYSTEM_MCD))

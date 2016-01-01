@@ -1,7 +1,8 @@
 Genesis Plus GX port for the GCW0 Handheld Console
 
-GCW0 port by:
-Shin-NiL
+Initial GCW0 port by:
+Shin-NiL & David Knight
+Continued maintainance by:
 David Knight
 Testing:
 Care16la20
@@ -48,6 +49,9 @@ This allows (in theory at least!) two player games. It also allows you to select
 
 CONFIGURATION OPTIONS (Default setting)
 
+Autofire toggle (Off)
+All buttons can be configured to autofire, autofire is set to 30fps. Autofire settings are not saved are are always reset to "off".
+
 Renderer (HW Triple Buf)
 Select the preferred rendering method. Options are Hardware (Triple buffering or Double buffering) or Software. 
 
@@ -62,6 +66,15 @@ This emulates the vertical scanlines visible on the LCD screen. It is only used 
 
 Mask left bar (SMS) (On)
 The Master System often displays a vertical bar on the left of the screen. Setting this to 'On' will remove it.
+
+Sound (On)
+Turning off sound will improve emulation speed for Mega CD games and Virtua Racing.
+
+FM sound (SMS) (On)
+Select whether to use enhanced sound on a few Master System titles. A list of compatible titles is at the foot of this readme.
+
+Stop skipping (Off)
+This will disguise sound skipping for taxing Mega CD titles and Virtua Racing by filling in the gaps with the previous sound frame. This can be very effective for repetative sounds but can also cause an echoing effect.
 
 Optimisations (Off)
 Set to "Off", "On: Balanced" or "On: Performance". This will enable a number of optimisations for Mega CD games, Pier Solar and Virtua Racing. This setting has no effect on other games which should run full speed anyway.
@@ -85,9 +98,6 @@ Action Replay:  "/usr/local/home/.genplus/lock-on/areplay.bin"
 Sonic & Knuckles:  "/usr/local/home/.genplus/lock-on/sk.bin" and /usr/local/home/.genplus/lock-on/sk2chip.bin additional info
 
 After changing the lock-on option, you must reload the game rom.
-
-FM sound (SMS) (On)
-Select whether to use enhanced sound on a few Master System titles. A list of compatible titles is at the foot of this readme.
 
 Lightgun Speed (1)
 Higher values will speed up the lightgun cursor for player 1.
@@ -160,4 +170,4 @@ Ultima IV
 Vigilante
 Wonder Boy III: The Dragon's Trap
 
-2015/09/24
+2016/01/01

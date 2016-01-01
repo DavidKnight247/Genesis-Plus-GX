@@ -71,7 +71,7 @@ void sram_init()
   memset(sram.sram, 0xFF, 0x10000);
   sram.crc = crc32(0, sram.sram, 0x10000);
 
-  /* retrieve informations from header */
+  /* retrieve information from header */
   if ((READ_BYTE(cart.rom,0x1b0) == 0x52) && (READ_BYTE(cart.rom,0x1b1) == 0x41))
   {
     /* backup RAM detected */
