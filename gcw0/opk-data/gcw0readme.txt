@@ -74,7 +74,7 @@ FM sound (SMS) (On)
 Select whether to use enhanced sound on a few Master System titles. A list of compatible titles is at the foot of this readme.
 
 Stop skipping (Off)
-This will disguise sound skipping for taxing Mega CD titles and Virtua Racing by filling in the gaps with the previous sound frame. This can be very effective for repetative sounds but can also cause an echoing effect.
+This will disguise sound skipping for taxing Mega CD titles and Virtua Racing by filling in the gaps with the previous sound frame. This can be very effective for repetitive sounds but can also cause an echoing effect.
 
 Optimisations (Off)
 Set to "Off", "On: Balanced" or "On: Performance". This will enable a number of optimisations for Mega CD games, Pier Solar and Virtua Racing. This setting has no effect on other games which should run full speed anyway.
