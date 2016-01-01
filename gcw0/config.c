@@ -37,22 +37,22 @@ void set_config_defaults(void)
     int i;
 
     /* sound options */
-    config.use_sound      = 1; /* 0 = OFF, 1 = ON */
-    config.skip_prevention = 0; /* 0 = OFF, 1 = ON */
-    config.ym2413         = 1; /* = AUTO (0 = always OFF, 1 = always ON) */
-    config.psg_preamp     = 150;
-    config.fm_preamp      = 100;
-    config.hq_fm          = 1;
-    config.psgBoostNoise  = 1;
-    config.filter         = 2;
-    config.low_freq       = 200;
-    config.high_freq      = 8000;
-    config.lg             = 1.0;
-    config.mg             = 1.0;
-    config.hg             = 1.0;
-    config.lp_range       = 0x9999; /* 0.6 in 16.16 fixed point */
-    config.dac_bits       = 14;
-    config.mono           = 0;
+    config.use_sound       = 1; /* 0 = OFF, 1 = ON */
+    config.skip_prevention = 1; /* 0 = OFF, 1 = ON */
+    config.ym2413          = 1; /* = AUTO (0 = always OFF, 1 = always ON) */
+    config.psg_preamp      = 150;
+    config.fm_preamp       = 100;
+    config.hq_fm           = 1;
+    config.psgBoostNoise   = 1;
+    config.filter          = 2;
+    config.low_freq        = 200;
+    config.high_freq       = 8000;
+    config.lg              = 1.0;
+    config.mg              = 1.0;
+    config.hg              = 1.0;
+    config.lp_range        = 0x9999; /* 0.6 in 16.16 fixed point */
+    config.dac_bits        = 14;
+    config.mono            = 0;
 
     /* system options */
     config.system         = 0; /* = AUTO (or SYSTEM_SG, SYSTEM_MARKIII, SYSTEM_SMS, SYSTEM_SMS2, SYSTEM_GG, SYSTEM_MD) */
