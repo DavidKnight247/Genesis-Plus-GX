@@ -20,6 +20,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <malloc.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include <errno.h>
 
 #define CHUNKSIZE 1024
 #define PRINTSETTING(px, py, pw, ph, setting) \
@@ -32,8 +35,13 @@
     SDL_BlitSurface(textSurface, NULL, menuSurface, &destination); \
     SDL_FreeSurface(textSurface); \
 }
+#define SOUND_FREQUENCY 44100 //if not 44100 this will cause Virtua racing to crash
+#define SOUND_SAMPLES_SIZE 2048
+#define VIDEO_WIDTH  320
+#define VIDEO_HEIGHT 240
 
-
+unsigned int joynum = 0;
+uint fullscreen = 1; /* SDL_FULLSCREEN */
 static short unsigned int old_srect_y;
 static short unsigned int old_drect_y;
 int    gcwzero_cycles = 3420;
@@ -68,14 +76,6 @@ const char *cursor[4]=
     "./CLASSIC_01.png",
     "./SQUARE_02.png",
 };
-
-#define SOUND_FREQUENCY 44100 //if not 44100 this will cause Virtua racing to crash
-#define SOUND_SAMPLES_SIZE 2048
-#define VIDEO_WIDTH  320
-#define VIDEO_HEIGHT 240
-
-unsigned int joynum = 0;
-uint fullscreen = 1; /* SDL_FULLSCREEN */
 
 /***************************************************************
  * This function enables various speed hacks.                  *
@@ -204,7 +204,9 @@ static short soundframe[SOUND_SAMPLES_SIZE];
 
 static void sdl_sound_callback(void *userdata, Uint8 *stream, int len)
 {
+
     if (sdl_sound.current_emulated_samples < len)
+    {
         if(config.optimisations || config.skip_prevention)
         {
             memcpy(stream, sdl_sound.buffer, len);
@@ -213,6 +215,7 @@ static void sdl_sound_callback(void *userdata, Uint8 *stream, int len)
         }
         else
             memset(stream, 0, len);
+    }
     else
     {
         memcpy(stream, sdl_sound.buffer, len);
@@ -275,7 +278,7 @@ static int sdl_sound_init()
 
 static void sdl_sound_update(int enabled)
 {
-    unsigned int size = audio_update(soundframe) * 2;
+    unsigned int size = audio_update(soundframe) ;
 
     if (enabled)
     {
@@ -289,10 +292,11 @@ static void sdl_sound_update(int enabled)
         do
         {
             *out++ = soundframe[i++];
+            *out++ = soundframe[i++];
         } while (--temp_size);
 
         sdl_sound.current_pos = (char*)out;
-        sdl_sound.current_emulated_samples += size * sizeof(short);
+        sdl_sound.current_emulated_samples += size * 2 * sizeof(short);
         SDL_UnlockAudio();
     }
 }
@@ -895,6 +899,65 @@ void gcw0_savestate(int slot)
     }
 }
 
+int cp(const char *to, const char *from) //taken from stackexchange.com user 'caf'
+{
+    int fd_to, fd_from;
+    char buf[4096];
+    ssize_t nread;
+    int saved_errno;
+
+    fd_from = open(from, O_RDONLY);
+    if (fd_from < 0)
+        return -1;
+
+    fd_to = open(to, O_WRONLY | O_CREAT | O_EXCL, 0666);
+    if (fd_to < 0)
+        goto out_error;
+
+    while (nread = read(fd_from, buf, sizeof buf), nread > 0)
+    {
+        char *out_ptr = buf;
+        ssize_t nwritten;
+
+        do {
+            nwritten = write(fd_to, out_ptr, nread);
+
+            if (nwritten >= 0)
+            {
+                nread -= nwritten;
+                out_ptr += nwritten;
+            }
+            else if (errno != EINTR)
+            {
+                goto out_error;
+            }
+        } while (nread > 0);
+    }
+
+    if (nread == 0)
+    {
+        if (close(fd_to) < 0)
+        {
+            fd_to = -1;
+            goto out_error;
+        }
+        close(fd_from);
+
+        /* Success! */
+        return 0;
+    }
+
+  out_error:
+    saved_errno = errno;
+
+    close(fd_from);
+    if (fd_to >= 0)
+        close(fd_to);
+
+    errno = saved_errno;
+    return -1;
+}
+
 void gcw0_loadstate(int slot)
 {
     char save_state_file[256];
@@ -925,7 +988,7 @@ static int gcw0menu(void)
     const char *gcw0menu_gfxlist[5]=
     { "Return to main menu", "Renderer", "Scaling", "Keep aspect ratio", "Scanlines (GG)" };
     const char *gcw0menu_sndlist[4]=
-    { "Return to main menu", "Sound", "FM sound (SMS)", "Stop skipping" };
+    { "Return to main menu", "Sound", "FM sound (SMS)", "Stop lag" };
     const char *gcw0menu_numericlist[5]=
     { " 0", " 1", " 2", " 3", " 4" };
     const char *gcw0menu_optimisations[3]=
@@ -975,6 +1038,7 @@ static int gcw0menu(void)
     TTF_Init();
     TTF_Font *ttffont = NULL;
     ttffont = TTF_OpenFont("./ProggyTiny.ttf", 16);
+    SDL_Color text_color_dull = {70, 70, 70};
     SDL_Color text_color = {180, 180, 180};
     SDL_Color selected_text_color = {23, 86, 155}; //selected colour = Sega blue ;)
 
@@ -984,7 +1048,7 @@ static int gcw0menu(void)
     case SYSTEM_PICO:
         tempbgSurface = IMG_Load( "./PICO.png" ); break;
     case SYSTEM_SG: //SG-1000 I&II
-        case SYSTEM_SGII:
+    case SYSTEM_SGII:
         tempbgSurface = IMG_Load( "./SG1000.png" ); break;
     case SYSTEM_MARKIII: //Mark III & Sega Master System I&II & Megadrive with power base converter
     case SYSTEM_SMS:
@@ -1063,7 +1127,7 @@ static int gcw0menu(void)
         destination2.y = 0;
         destination2.w = 100;
         destination2.h = 50;
-        textSurfaceVersion = TTF_RenderText_Solid(ttffont, "Build date " __DATE__, text_color);
+        textSurfaceVersion = TTF_RenderText_Solid(ttffont, "Build date " __DATE__, text_color_dull);
 
       //Blit background and title
         SDL_BlitSurface(MenuBackground,     NULL, menuSurface, &rect);
@@ -1560,11 +1624,12 @@ static int gcw0menu(void)
                     SDL_Delay(120);
                     gcw0_savestate(selectedoption - 30);
                   //Save BMP screenshot
-                    char save_state_screenshot[256];
+                    const char save_state_screenshot[256];
                     sprintf(save_state_screenshot,"%s/%s.%d.bmp", get_save_directory(), rom_filename, selectedoption-30);
-                    char save_state_screenshot2[256];
+                    const char save_state_screenshot2[256];
                     sprintf(save_state_screenshot2,"%s/%s.", get_save_directory(), rom_filename);
-                    rename(save_state_screenshot2, save_state_screenshot);
+cp(save_state_screenshot, save_state_screenshot2);
+//                    rename(save_state_screenshot2, save_state_screenshot);
                     if (config.sl_autoresume)
                     {
                         menustate = MAINMENU;
@@ -2473,8 +2538,6 @@ int main (int argc, char **argv)
                     break;
             }
         }
-
-#ifdef GCWZERO
         if (do_once) 
         {
             do_once = 0; //don't waste write cycles!
@@ -2509,7 +2572,7 @@ int main (int argc, char **argv)
                 smsmaskleftbar = config.smsmaskleftbar;
             }
         }
-#endif
+
         sdl_video_update();
         sdl_sound_update(config.use_sound);
 

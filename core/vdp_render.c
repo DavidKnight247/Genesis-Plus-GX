@@ -952,21 +952,24 @@ static uint32 make_lut_bgobj_m4(uint32 bx, uint32 sx)
 INLINE void merge(uint8 *srca, uint8 *srcb, uint8 *dst, uint8 *table, int width)
 {
 #ifdef GCWZERO
-unsigned int width_div_sixteen = width * 0.0625;
+  unsigned int width_div_sixteen = width >> 4;
   do
   {
     *dst++ = table[(*srcb++ << 8) | (*srca++)];
     *dst++ = table[(*srcb++ << 8) | (*srca++)];
     *dst++ = table[(*srcb++ << 8) | (*srca++)];
     *dst++ = table[(*srcb++ << 8) | (*srca++)];
+
     *dst++ = table[(*srcb++ << 8) | (*srca++)];
     *dst++ = table[(*srcb++ << 8) | (*srca++)];
     *dst++ = table[(*srcb++ << 8) | (*srca++)];
     *dst++ = table[(*srcb++ << 8) | (*srca++)];
+
     *dst++ = table[(*srcb++ << 8) | (*srca++)];
     *dst++ = table[(*srcb++ << 8) | (*srca++)];
     *dst++ = table[(*srcb++ << 8) | (*srca++)];
     *dst++ = table[(*srcb++ << 8) | (*srca++)];
+
     *dst++ = table[(*srcb++ << 8) | (*srca++)];
     *dst++ = table[(*srcb++ << 8) | (*srca++)];
     *dst++ = table[(*srcb++ << 8) | (*srca++)];
@@ -4307,9 +4310,37 @@ if(draw_from_line > draw_from_line_temp) draw_from_line = draw_from_line_temp;
 if(draw_to_line < draw_to_line_temp) draw_from_line = draw_from_line_temp;
 
 #else
+#ifdef GCWZERO
     /* Convert VDP pixel data to output pixel format */
     PIXEL_OUT_T *dst = ((PIXEL_OUT_T *)&bitmap.data[(line * bitmap.pitch)]);
-/*
+    {
+      for(int i=width;i!=0;i-=16)
+      {
+        *dst++ = pixel[*src++];
+        *dst++ = pixel[*src++];
+        *dst++ = pixel[*src++];
+        *dst++ = pixel[*src++];
+
+        *dst++ = pixel[*src++];
+        *dst++ = pixel[*src++];
+        *dst++ = pixel[*src++];
+        *dst++ = pixel[*src++];
+
+        *dst++ = pixel[*src++];
+        *dst++ = pixel[*src++];
+        *dst++ = pixel[*src++];
+        *dst++ = pixel[*src++];
+
+        *dst++ = pixel[*src++];
+        *dst++ = pixel[*src++];
+        *dst++ = pixel[*src++];
+        *dst++ = pixel[*src++];
+      }
+    }
+#else
+    /* Convert VDP pixel data to output pixel format */
+    PIXEL_OUT_T *dst = ((PIXEL_OUT_T *)&bitmap.data[(line * bitmap.pitch)]);
+
     if (config.lcd)
     {
       do
@@ -4319,36 +4350,15 @@ if(draw_to_line < draw_to_line_temp) draw_from_line = draw_from_line_temp;
       while (--width);
     }
     else
-*/
     {
-for(int i=width;i!=0;i-=16)
-{
-        *dst++ = pixel[*src++];
-        *dst++ = pixel[*src++];
-        *dst++ = pixel[*src++];
-        *dst++ = pixel[*src++];
-        *dst++ = pixel[*src++];
-        *dst++ = pixel[*src++];
-        *dst++ = pixel[*src++];
-        *dst++ = pixel[*src++];
-        *dst++ = pixel[*src++];
-        *dst++ = pixel[*src++];
-        *dst++ = pixel[*src++];
-        *dst++ = pixel[*src++];
-        *dst++ = pixel[*src++];
-        *dst++ = pixel[*src++];
-        *dst++ = pixel[*src++];
-        *dst++ = pixel[*src++];
-}
-/*
       do
       {
         *dst++ = pixel[*src++];
       }
       while (--width);
-*/
     }
 #endif //gcwzero
+#endif //gcw0_alt_blitter
 #endif
   }
 }
