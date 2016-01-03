@@ -1,8 +1,18 @@
 This is a tweaked version of Genesis Plus GX forked from ekeeke for the GCW Zero handheld console.
 
+The makefile for the GCW0 is located in the gcw0 folder, although I recommend running ./opk_build as the script will also convert the binary into a working .opk package for use on the system.
+
+TODO
+I made a work in progress build for the dingoo (Makefile.dingoo.WIP) but I have not managed to successfully compile this at present. I also lack a device to test this build so I would be grateful for any contributions to get it running on this device.
+
+I began work on an SDL2 port (SDL2) but this runs very slowly on the GCW0 so I have ceased work on this for now.
+
+I have also started work on an alternative blitter and renderer (GCW0_ALT_BLITTER) but this is not optimised enough yet to be faster than the existing solution for most situations. It would also need to handle triple buffered displays properly as currently there is still some flickering.
+
+
 Original readme follows:
 
-Genesis Plus GX is an open-source Sega 8/16 bit emulator focused on accuracy and portability. Initially ported and developped on Gamecube / Wii consoles through [libogc / devkitPPC](http://sourceforge.net/projects/devkitpro/), this emulator is now available on many other platforms through various frontends such as:
+Genesis Plus GX is an open-source Sega 8/16 bit emulator focused on accuracy and portability. Initially ported and developed on Gamecube / Wii consoles through [libogc / devkitPPC](http://sourceforge.net/projects/devkitpro/), this emulator is now available on many other platforms through various frontends such as:
 
 * [Retroarch (libretro)](http://www.libretro.com)
 
