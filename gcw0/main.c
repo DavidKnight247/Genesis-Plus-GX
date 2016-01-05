@@ -1628,8 +1628,13 @@ static int gcw0menu(void)
                     sprintf(save_state_screenshot,"%s/%s.%d.bmp", get_save_directory(), rom_filename, selectedoption-30);
                     const char save_state_screenshot2[256];
                     sprintf(save_state_screenshot2,"%s/%s.", get_save_directory(), rom_filename);
-cp(save_state_screenshot, save_state_screenshot2);
-//                    rename(save_state_screenshot2, save_state_screenshot);
+                    FILE *savefile;
+                    if ((savefile = fopen(save_state_screenshot, "r")) != NULL)
+                    {
+                        fclose(savefile);
+                        remove(save_state_screenshot);
+                    }
+                    cp(save_state_screenshot, save_state_screenshot2);
                     if (config.sl_autoresume)
                     {
                         menustate = MAINMENU;
