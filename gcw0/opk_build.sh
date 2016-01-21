@@ -1,11 +1,15 @@
 #!/bin/sh
+
+echo '\nCompiling source code\n'
 make -f Makefile.gcw
 
-echo "Stripping binary"
+echo '\n\nStripping binary\n'
 mipsel-linux-strip gen_gcw0;
 
-echo "Removing existing opk package"
+echo '\n\nRemoving existing opk package\n'
 rm -rf genplus.opk
 
-echo "\nBuilding new opk package"
+echo '\n\nBuilding new opk package\n'
 mksquashfs gen_gcw0 opk-data/* genplus.opk -all-root -noappend -no-exports -no-xattrs
+
+echo '\n\nDONE!\n'

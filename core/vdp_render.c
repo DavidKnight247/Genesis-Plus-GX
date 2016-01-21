@@ -43,8 +43,8 @@
 #include "md_ntsc.h"
 #include "sms_ntsc.h"
 
+unsigned int do_blit = 0;
 #ifdef GCW0_ALT_BLITTER
-unsigned int do_not_blit = 1;
 unsigned int draw_from_line = 0;
 unsigned int draw_to_line = 1;
 unsigned int draw_from_line_temp = 0;
@@ -4265,7 +4265,7 @@ void remap_line(int line)
       PIXEL_OUT_T *dst = ((PIXEL_OUT_T *)&bitmap.data[(line * bitmap.pitch)]);
       PIXEL_OUT_T b = 0;
       unsigned int dtl = 0;
-      if(!do_not_blit) //we're already blitting
+      if(!do_blit) //we're already blitting
       {
 //        if(draw_to_line > line) dtl = 1;
         do
@@ -4287,53 +4287,45 @@ void remap_line(int line)
       }
       else //we might not need to blit...check for changes to the image.
       {
-        unsigned int dnb = do_not_blit;
-//        if(line == draw_from_line) do_not_blit = dnb = 0;
+        unsigned int db = do_blit;
+//        if(line == draw_from_line) do_blit = db = 1;
         do
         {
           b = pixel[*src++];
           if(*dst != b)
           {
             *dst++ = b;
-            if(dnb) dnb = !dnb;
+            if(db) db = !db;
           }
           else *dst++;
         } while (--width);
-        if(!dnb)
+        if(db)
         {
           draw_from_line_temp = line ; //define the last line as well, for now they are the same.
           if(draw_to_line_temp < line) draw_to_line_temp = line;
-          do_not_blit = 0;
+          do_blit = 1;
         }
       }
-if(draw_from_line > draw_from_line_temp) draw_from_line = draw_from_line_temp;
-if(draw_to_line < draw_to_line_temp) draw_from_line = draw_from_line_temp;
-
+    if(draw_from_line > draw_from_line_temp) draw_from_line = draw_from_line_temp;
+    if(draw_to_line < draw_to_line_temp) draw_from_line = draw_from_line_temp;
 #else
 #ifdef GCWZERO
     /* Convert VDP pixel data to output pixel format */
     PIXEL_OUT_T *dst = ((PIXEL_OUT_T *)&bitmap.data[(line * bitmap.pitch)]);
+
+    // Check if changes are present 
+    int i = 0;
+    for(i = width; i != 0; i--)
     {
-      for(int i=width;i!=0;i-=16)
+      if(*dst==pixel[*src]) {*dst++; *src++;}
+      else break;
+    }
+    if(i)
+    {
+      // Changes are present 
+      do_blit = 1; //Signal to blit and flip in main.c
+      for(int j = i; j != 0; j--)
       {
-        *dst++ = pixel[*src++];
-        *dst++ = pixel[*src++];
-        *dst++ = pixel[*src++];
-        *dst++ = pixel[*src++];
-
-        *dst++ = pixel[*src++];
-        *dst++ = pixel[*src++];
-        *dst++ = pixel[*src++];
-        *dst++ = pixel[*src++];
-
-        *dst++ = pixel[*src++];
-        *dst++ = pixel[*src++];
-        *dst++ = pixel[*src++];
-        *dst++ = pixel[*src++];
-
-        *dst++ = pixel[*src++];
-        *dst++ = pixel[*src++];
-        *dst++ = pixel[*src++];
         *dst++ = pixel[*src++];
       }
     }

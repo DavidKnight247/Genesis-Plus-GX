@@ -4,6 +4,7 @@
 #define MessageBox(owner, text, caption, type) printf("%s: %s\n", caption, text)
 #endif
 
+#include "SDL_config.h"
 #include <SDL.h>
 #include <SDL_thread.h>
 
@@ -35,15 +36,18 @@
     SDL_BlitSurface(textSurface, NULL, menuSurface, &destination); \
     SDL_FreeSurface(textSurface); \
 }
-#define SOUND_FREQUENCY 44100 //if not 44100 this will cause Virtua racing to crash
+#define SPEED_HACKS 1
+#define SOUND_FREQUENCY 44100
+#define SOUND_FREQUENCY_VR 11025 //reduce sound frequency to allow svp chip emulation
 #define SOUND_SAMPLES_SIZE 2048
 #define VIDEO_WIDTH  320
 #define VIDEO_HEIGHT 240
-
 unsigned int joynum = 0;
 uint fullscreen = 1; /* SDL_FULLSCREEN */
+#ifdef GCW0_ALT_BLITTER
 static short unsigned int old_srect_y;
 static short unsigned int old_drect_y;
+#endif
 int    gcwzero_cycles = 3420;
 uint8  do_once        = 1;
 uint32 gcw0_w         = 320;
@@ -79,11 +83,12 @@ const char *cursor[4]=
 
 /***************************************************************
  * This function enables various speed hacks.                  *
- * If you don't want them remove references to this function.  *
+ * If you don't want them undefine SPEED_HACKS.                *
  * This function is only called for Virtua Racing and MCD roms.*
  ***************************************************************/
-int calc_framerate(int optimisations)
+void calc_framerate(int optimisations)
 {
+#ifdef SPEED_HACKS
     if (!gotomenu)
     {
 	uint now  = SDL_GetTicks();
@@ -179,12 +184,12 @@ int calc_framerate(int optimisations)
                     }
                 } //Speed optimisations
             } //MCD optimisations
-        } else return frametime;
+        }
     }
-    return 1;
+#endif
 }
 
-/* sound */
+/* Sound */
 struct
 {
     char* current_pos;
@@ -220,7 +225,7 @@ static void sdl_sound_callback(void *userdata, Uint8 *stream, int len)
     {
         memcpy(stream, sdl_sound.buffer, len);
         /* loop to compensate desync */
-        unsigned int len_times_two = 2 * len;
+        unsigned int len_times_two = len + len;
         do
         {
             sdl_sound.current_emulated_samples -= len;
@@ -243,7 +248,7 @@ static int sdl_sound_init()
     }
 
     if (strstr(rominfo.international,"Virtua Racing"))
-        as_desired.freq     = SOUND_FREQUENCY / 4; //speed hack, assumes SOUND_FREQUENCY = 44100kHz
+        as_desired.freq     = SOUND_FREQUENCY_VR; //speed hack
     else
         as_desired.freq     = SOUND_FREQUENCY;
     as_desired.format   = AUDIO_S16LSB;
@@ -309,7 +314,6 @@ static void sdl_sound_close()
         free(sdl_sound.buffer);
 }
 
-#ifdef GCWZERO //A-stick support
 static void sdl_joystick_init()
 {
     if (SDL_Init(SDL_INIT_JOYSTICK) < 0)
@@ -318,7 +322,6 @@ static void sdl_joystick_init()
         MessageBox(NULL, "SDL Joystick initialisation successful", "Success", 0);
     return;
 }
-#endif
 
 /* video */
 md_ntsc_t *md_ntsc;
@@ -367,59 +370,47 @@ static int sdl_video_init()
 
 static void sdl_video_update()
 {
+    enum {FRAME_START = 0, FRAME_GEN = 1, FRAME_BLIT = 2, FRAME_FLIP = 3};
+    static int frame_progress = FRAME_START;
+    do_blit = 0; //default is do not blit, we will change this later if a pixel changes on the screen.
     if (system_hw == SYSTEM_MCD)
     {
-#ifdef GCWZERO
         if ((skipval >= frameskip) && (skipval < 10))
         {
-#ifdef GCW0_ALT_BLITTER
-            do_not_blit = 1; //default is do not blit, we will change this later if a pixel changes on the screen.
-#endif
             system_frame_scd(0); //render frame
+            frame_progress = FRAME_GEN;
             skipval = 10;
         } else {
+            do_blit = 1;
             system_frame_scd(frameskip); //skip frame render
             ++skipval;
         }
-#else
-        system_frame_scd(0);
-#endif
     }
     else if ((system_hw & SYSTEM_PBC) == SYSTEM_MD)
-#ifdef GCWZERO
     {
         if ((skipval >= frameskip) && (skipval < 10))
         {
-#ifdef GCW0_ALT_BLITTER
-            do_not_blit = 1; //default is do not blit, we will change this later if a pixel changes on the screen.
-#endif
             system_frame_gen(0);
+            frame_progress = FRAME_GEN;
             skipval = 10;
         } else {
+            do_blit = 1;
             system_frame_gen(frameskip);
             ++skipval;
         }
-#else
-        system_frame_gen(0);
-#endif
     }
     else
     {
-#ifdef GCWZERO
         if (skipval >= frameskip)
         {
-#ifdef GCW0_ALT_BLITTER
-            do_not_blit = 1; //default is do not blit, we will change this later if a pixel changes on the screen.
-#endif
             system_frame_sms(0);
+            frame_progress = FRAME_GEN;
             skipval = 10;
         } else {
+            do_blit = 1;
             system_frame_sms(1);
             ++skipval;
         }
-#else
-        system_frame_sms(0);
-#endif
     }
 
     /* viewport size changed */
@@ -589,9 +580,7 @@ static void sdl_video_update()
     if (!frameskip || (skipval == 10) )
     {
       //Custom Blitter, see core/vdp_render.c
-#ifdef GCW0_ALT_BLITTER
-      if(!do_not_blit) //at least one pixel has changed so we need to blit and flip.
-#endif
+      if(do_blit && frame_progress == FRAME_GEN) //at least one pixel has changed so we need to blit and flip.
       {
 #ifdef GCW0_ALT_BLITTER
         if(system_hw == SYSTEM_MCD || (system_hw & SYSTEM_PBC) == SYSTEM_MD)
@@ -619,15 +608,17 @@ static void sdl_video_update()
 #endif
         {
           SDL_BlitSurface(sdl_video.surf_bitmap, &sdl_video.srect, sdl_video.surf_screen, &sdl_video.drect);
+          skipval = 19;
         }
-      } //!do_not_blit so we'll do nothing...unless...
-#ifdef GCW0_ALT_BLITTER
+        frame_progress = FRAME_BLIT;
+//TODO
+      } //!do_blit so we'll do nothing...unless...
       else if (show_lightgun)
       {
         SDL_BlitSurface(sdl_video.surf_bitmap, &sdl_video.srect, sdl_video.surf_screen, &sdl_video.drect);
         skipval = 19;
+        frame_progress = FRAME_BLIT;
       }
-#endif
     }
 #endif //!SDL2
 #ifdef GCWZERO
@@ -701,20 +692,21 @@ static void sdl_video_update()
         SDL_RenderCopy(renderer, texture, NULL, NULL);
         SDL_RenderPresent(renderer);
 #else
-#ifdef GCW0_ALT_BLITTER
-        if(!do_not_blit)
+        if(do_blit && frame_progress == FRAME_BLIT)
         {
           if(config.renderer < 2) SDL_Flip      (sdl_video.surf_screen            );
           else                    SDL_UpdateRect(sdl_video.surf_screen, sdl_video.my_drect.x, sdl_video.my_drect.y, sdl_video.my_drect.w, sdl_video.my_drect.h);
+          frame_progress = FRAME_START;
         }
         else if(show_lightgun)
-#endif
         {
           if(config.renderer < 2) SDL_Flip      (sdl_video.surf_screen            );
-          else                    SDL_UpdateRect(sdl_video.surf_screen, 0, 0, 0, 0);
+          else                    SDL_UpdateRect(sdl_video.surf_screen, sdl_video.my_drect.x, sdl_video.my_drect.y, sdl_video.my_drect.w, sdl_video.my_drect.h);
+          frame_progress = FRAME_START;
         }
 #endif
         skipval = 0;
+        
     }
 
     if (++sdl_video.frames_rendered == 3)
@@ -1624,9 +1616,9 @@ static int gcw0menu(void)
                     SDL_Delay(120);
                     gcw0_savestate(selectedoption - 30);
                   //Save BMP screenshot
-                    const char save_state_screenshot[256];
+                    char save_state_screenshot[256];
                     sprintf(save_state_screenshot,"%s/%s.%d.bmp", get_save_directory(), rom_filename, selectedoption-30);
-                    const char save_state_screenshot2[256];
+                    char save_state_screenshot2[256];
                     sprintf(save_state_screenshot2,"%s/%s.", get_save_directory(), rom_filename);
                     FILE *savefile;
                     if ((savefile = fopen(save_state_screenshot, "r")) != NULL)
@@ -2441,7 +2433,7 @@ int main (int argc, char **argv)
 
     /* initialize system hardware */
     if (strstr(rominfo.international,"Virtua Racing"))
-        audio_init(SOUND_FREQUENCY / 4, (vdp_pal ? 50 : 60));
+        audio_init(SOUND_FREQUENCY_VR, (vdp_pal ? 50 : 60));
     else if (system_hw == SYSTEM_MCD)
         audio_init(SOUND_FREQUENCY,     (vdp_pal ? 50 : 60));
     else
