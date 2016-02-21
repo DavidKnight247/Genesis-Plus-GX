@@ -125,7 +125,7 @@ void sound_reset(void)
 
 int sound_update(unsigned int cycles)
 {
-  int delta, preamp, time, l, r, *ptr;
+  int delta, delta2, preamp, time, l, r, *ptr;
 
   /* Run PSG & FM chips until end of frame */
   SN76489_Update(cycles);
@@ -154,7 +154,7 @@ int sound_update(unsigned int cycles)
       delta = ((*ptr++ * preamp) / 100) - l;
       l += delta;
       blip_add_delta(snd.blips[0][0], time, delta);
-      
+
       /* right channel */
       delta = ((*ptr++ * preamp) / 100) - r;
       r += delta;
@@ -171,14 +171,25 @@ int sound_update(unsigned int cycles)
     do
     {
       /* left channel */
+#ifdef GCWZERO
+      delta = *ptr++ - l;
+      l += delta;
+#else
       delta = ((*ptr++ * preamp) / 100) - l;
       l += delta;
       blip_add_delta_fast(snd.blips[0][0], time, delta);
-      
+#endif
+
       /* right channel */
+#ifdef GCWZERO
+      delta2 = *ptr++ - r;
+      r += delta2;
+      blip_add_delta_fast_stereo(snd.blips[0][1], snd.blips[0][0], time, delta, delta2);
+#else
       delta = ((*ptr++ * preamp) / 100) - r;
       r += delta;
       blip_add_delta_fast(snd.blips[0][1], time, delta);
+#endif
 
       /* increment time counter */
       time += fm_cycles_ratio;
@@ -195,7 +206,7 @@ int sound_update(unsigned int cycles)
 
   /* adjust FM cycle counters for next frame */
   fm_cycles_count = fm_cycles_start = time - cycles;
-	
+
   /* end of blip buffers time frame */
   blip_end_frame(snd.blips[0][0], cycles);
   blip_end_frame(snd.blips[0][1], cycles);
@@ -207,7 +218,7 @@ int sound_update(unsigned int cycles)
 int sound_context_save(uint8 *state)
 {
   int bufferptr = 0;
-  
+
   if ((system_hw & SYSTEM_PBC) == SYSTEM_MD)
   {
     bufferptr = YM2612SaveContext(state);

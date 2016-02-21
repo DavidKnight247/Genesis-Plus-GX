@@ -21,13 +21,9 @@ blip_t* blip_new( int sample_count );
 clock_rate input clocks, approximately sample_rate samples are generated. */
 void blip_set_rates( blip_t*, double clock_rate, double sample_rate );
 
-#ifdef GCWZERO
-#define BLIP_MAX_RATIO 1048576
-#else
 enum { /** Maximum clock_rate/sample_rate ratio. For a given sample_rate,
 clock_rate must not be greater than sample_rate*blip_max_ratio. */
 blip_max_ratio = 1 << 20 };
-#endif
 
 /** Clears entire buffer. Afterwards, blip_samples_avail() == 0. */
 void blip_clear( blip_t* );
@@ -37,6 +33,7 @@ void blip_add_delta( blip_t*, unsigned int clock_time, int delta );
 
 /** Same as blip_add_delta(), but uses faster, lower-quality synthesis. */
 void blip_add_delta_fast( blip_t*, unsigned int clock_time, int delta );
+void blip_add_delta_fast_stereo( blip_t* m, blip_t* n, unsigned int clock_time, int delta , int delta2);
 
 /** Length of time frame, in clocks, needed to make sample_count additional
 samples available. */
@@ -63,6 +60,7 @@ int blip_read_samples( blip_t*, short out [], int count);
 /* Same as above function except sample is added to output buffer previous value */
 /* This allows easy mixing of different blip buffers into a single output stream */
 int blip_mix_samples( blip_t* m, short out [], int count);
+int blip_mix_three_samples( blip_t* o,blip_t* m, blip_t* n, short out [], int count);
 
 /** Frees buffer. No effect if NULL is passed. */
 void blip_delete( blip_t* );

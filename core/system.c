@@ -161,7 +161,7 @@ void audio_set_rate(int samplerate, double framerate)
 void audio_reset(void)
 {
   int i,j;
-  
+
   /* Clear blip buffers */
   for (i=0; i<3; i++)
   {
@@ -185,9 +185,15 @@ void audio_reset(void)
 void audio_set_equalizer(void)
 {
   init_3band_state(&eq,config.low_freq,config.high_freq,snd.sample_rate);
+#ifdef GCWZERO
+  eq.lg = (float)(config.lg) / 100.0;
+  eq.mg = (float)(config.mg) / 100.0;
+  eq.hg = (float)(config.hg) / 100.0;
+#else
   eq.lg = (double)(config.lg) / 100.0;
   eq.mg = (double)(config.mg) / 100.0;
   eq.hg = (double)(config.hg) / 100.0;
+#endif
 }
 
 void audio_shutdown(void)
@@ -224,23 +230,31 @@ int audio_update(int16 *buffer)
 #endif
 
   /* resample FM & PSG mixed stream to output buffer */
-#ifdef LSB_FIRST
-  blip_read_samples(snd.blips[0][0], buffer, size);
-  blip_read_samples(snd.blips[0][1], buffer + 1, size);
-#else
-  blip_read_samples(snd.blips[0][0], buffer + 1, size);
-  blip_read_samples(snd.blips[0][1], buffer, size);
-#endif
-
-  /* Mega CD specific */
-  if (system_hw == SYSTEM_MCD)
+  if(system_hw != SYSTEM_MCD)
   {
+#ifdef LSB_FIRST
+    blip_read_samples(snd.blips[0][0], buffer, size);
+    blip_read_samples(snd.blips[0][1], buffer + 1, size);
+#else
+    blip_read_samples(snd.blips[0][0], buffer + 1, size);
+    blip_read_samples(snd.blips[0][1], buffer, size);
+#endif
+  }
+  else
+  {
+    /* Mega CD specific */
+
     /* resample PCM & CD-DA streams to output buffer */
 #ifdef LSB_FIRST
+#ifdef GCWZERO //slightly faster
+    blip_mix_three_samples(snd.blips[0][0], snd.blips[1][0], snd.blips[2][0], buffer, size);     // FM, PSG, PCM & CDA L
+    blip_mix_three_samples(snd.blips[0][1], snd.blips[1][1], snd.blips[2][1], buffer + 1, size); // FM, PSG, PCM & CDA R
+#else
     blip_mix_samples(snd.blips[1][0], buffer, size);
     blip_mix_samples(snd.blips[1][1], buffer + 1, size);
     blip_mix_samples(snd.blips[2][0], buffer, size);
     blip_mix_samples(snd.blips[2][1], buffer + 1, size);
+#endif
 #else
     blip_mix_samples(snd.blips[1][0], buffer + 1, size);
     blip_mix_samples(snd.blips[1][1], buffer, size);
@@ -363,7 +377,7 @@ void system_frame_gen(int do_skip)
   fifo_write_cnt = 0;
   fifo_slots = 0;
 
-  /* check if display setings have changed during previous frame */
+  /* check if display settings have changed during previous frame */
   if (bitmap.viewport.changed & 2)
   {
     /* interlaced modes */
@@ -401,7 +415,6 @@ void system_frame_gen(int do_skip)
       /* clear flag */
       bitmap.viewport.changed &= ~2;
     }
-
     /* active screen height */
     if (reg[1] & 0x04)
     {
@@ -442,7 +455,7 @@ void system_frame_gen(int do_skip)
   {
     blank_line(v_counter, -bitmap.viewport.x, bitmap.viewport.w + 2*bitmap.viewport.x);
   }
-  
+
   /* clear DMA Busy, FIFO FULL & field flags */
   status &= 0xFEED;
 
@@ -456,7 +469,6 @@ void system_frame_gen(int do_skip)
     odd_frame ^= 1;
     status |= (odd_frame << 4);
   }
-
   /* run VDP DMA */
   if (dma_length)
   {
@@ -465,7 +477,7 @@ void system_frame_gen(int do_skip)
 
   /* update 6-Buttons & Lightguns */
   input_refresh();
-  
+
   /* H-Int counter */
   if (h_counter == 0)
   {
@@ -483,7 +495,7 @@ void system_frame_gen(int do_skip)
 
   /* delay between VINT flag & Vertical Interrupt (Ex-Mutants, Tyrant) */
   m68k_run(588);
-  
+
   /* set VINT flag */
   status |= 0x80;
 
@@ -534,7 +546,7 @@ void system_frame_gen(int do_skip)
   mcycles_vdp = MCYCLES_PER_LINE;
 
   /* initialize line count */
-  line = bitmap.viewport.h + 1; 
+  line = bitmap.viewport.h + 1;
 
   /* initialize overscan area */
   start = lines_per_frame - bitmap.viewport.y;
@@ -542,7 +554,7 @@ void system_frame_gen(int do_skip)
 
   /* Vertical Blanking */
 #ifdef GCWZERO
-int lines_per_frame_adjusted = lines_per_frame-1;
+  int lines_per_frame_adjusted = lines_per_frame - 1;
 #endif
   do
   {
@@ -552,9 +564,7 @@ int lines_per_frame_adjusted = lines_per_frame-1;
     /* render overscan */
     if ((line < end) || (line >= start))
     {
-#ifndef GCWZERO
       blank_line(line, -bitmap.viewport.x, bitmap.viewport.w + 2*bitmap.viewport.x);
-#endif
     }
 
     /* update 6-Buttons & Lightguns */
@@ -601,30 +611,29 @@ int lines_per_frame_adjusted = lines_per_frame-1;
     /* update VDP cycle count */
     mcycles_vdp += MCYCLES_PER_LINE;
   }
-#ifdef GCWZERO
-//small optimisation?
-  while (++line < lines_per_frame_adjusted);
+#ifdef GCWZERO //small optimisation?
+  while (++line != lines_per_frame_adjusted);
 #else
   while (++line < (lines_per_frame - 1));
-#endif  
-  
+#endif
+
   /* update VCounter */
   v_counter = line;
 
+#ifndef GCWZERO
   /* last line of overscan */
   if (bitmap.viewport.y)
   {
-#ifndef GCWZERO
     blank_line(line, -bitmap.viewport.x, bitmap.viewport.w + 2*bitmap.viewport.x);
-#endif
   }
+#endif
 
   /* reload H-Int counter */
   h_counter = reg[10];
-  
+
   /* clear VBLANK flag */
   status &= ~0x08;
- 
+
   /* run VDP DMA */
   if (dma_length)
   {
@@ -666,7 +675,7 @@ int lines_per_frame_adjusted = lines_per_frame-1;
 
   /* reset line count */
   line = 0;
-  
+
   /* Active Display */
   do
   {
@@ -685,6 +694,17 @@ int lines_per_frame_adjusted = lines_per_frame-1;
       render_line(line);
     }
 
+#ifdef GCWZERO
+    /* update 6-Buttons & Lightguns */
+    input_refresh();
+
+    /* H-Int counter */
+    if (!h_counter--)
+    {
+      /* reload H-Int counter */
+        h_counter++;
+        h_counter = reg[10];
+#else
     /* update 6-Buttons & Lightguns */
     input_refresh();
 
@@ -692,8 +712,9 @@ int lines_per_frame_adjusted = lines_per_frame-1;
     if (h_counter == 0)
     {
       /* reload H-Int counter */
-      h_counter = reg[10];
-      
+        h_counter = reg[10];
+#endif
+
       /* Horizontal Interrupt is pending */
       hint_pending = 0x10;
       if (reg[0] & 0x10)
@@ -702,11 +723,13 @@ int lines_per_frame_adjusted = lines_per_frame-1;
         m68k_update_irq(4);
       }
     }
+#ifndef GCWZERO
     else
     {
       /* decrement H-Int counter */
       h_counter--;
     }
+#endif
 
     /* run 68k & Z80 until end of line */
     m68k_run(mcycles_vdp + MCYCLES_PER_LINE);
@@ -732,8 +755,11 @@ int lines_per_frame_adjusted = lines_per_frame-1;
     /* update VDP cycle count */
     mcycles_vdp += MCYCLES_PER_LINE;
   }
+#ifdef GCWZERO
+  while (++line != bitmap.viewport.h);
+#else
   while (++line < bitmap.viewport.h);
-
+#endif
   /* check viewport changes */
   if (bitmap.viewport.w != bitmap.viewport.ow)
   {
@@ -838,13 +864,12 @@ void system_frame_scd(int do_skip)
   {
     blank_line(v_counter, -bitmap.viewport.x, bitmap.viewport.w + 2*bitmap.viewport.x);
   }
-  
+
   /* clear DMA Busy, FIFO FULL & field flags */
   status &= 0xFEED;
 
   /* set VBLANK & FIFO EMPTY flags */
   status |= 0x0208;
-
   /* check interlaced modes */
   if (interlaced)
   {
@@ -879,7 +904,7 @@ void system_frame_scd(int do_skip)
 
   /* delay between VINT flag & Vertical Interrupt (Ex-Mutants, Tyrant) */
   m68k_run(588);
-  
+
   /* set VINT flag */
   status |= 0x80;
 
@@ -980,11 +1005,11 @@ void system_frame_scd(int do_skip)
     mcycles_vdp += MCYCLES_PER_LINE;
   }
 #ifdef GCWZERO
-  while (++line < (lines_per_frame_adjusted));
+  while (++line != (lines_per_frame_adjusted));
 #else
   while (++line < (lines_per_frame - 1));
 #endif
-  
+
   /* update VCounter */
   v_counter = line;
 
@@ -996,10 +1021,10 @@ void system_frame_scd(int do_skip)
 
   /* reload H-Int counter */
   h_counter = reg[10];
-  
+
   /* clear VBLANK flag */
   status &= ~0x08;
- 
+
   /* run VDP DMA */
   if (dma_length)
   {
@@ -1039,28 +1064,30 @@ void system_frame_scd(int do_skip)
   {
     /* update VCounter */
     v_counter = line;
-
-    /* run VDP DMA */
-    if (dma_length)
-    {
-      vdp_dma_update(mcycles_vdp);
-    }
+      /* run VDP DMA */
+      if (dma_length)
+      {
+        vdp_dma_update(mcycles_vdp);
+      }
 
     /* render scanline */
     if (!do_skip)
     {
+
       render_line(line);
     }
-    
+
+#ifndef GCWZERO
     /* update 6-Buttons & Lightguns */
     input_refresh();
+#endif
 
     /* H-Int counter */
-    if (h_counter == 0)
+    if (!h_counter--)
     {
       /* reload H-Int counter */
       h_counter = reg[10];
-      
+
       /* Horizontal Interrupt is pending */
       hint_pending = 0x10;
       if (reg[0] & 0x10)
@@ -1068,11 +1095,6 @@ void system_frame_scd(int do_skip)
         /* level 4 interrupt */
         m68k_update_irq(4);
       }
-    }
-    else
-    {
-      /* decrement H-Int counter */
-      h_counter--;
     }
 
     /* run both 68k & CD hardware until end of line */
@@ -1091,7 +1113,11 @@ void system_frame_scd(int do_skip)
     /* update VDP cycle count */
     mcycles_vdp += MCYCLES_PER_LINE;
   }
+#ifdef GCWZERO
+  while (++line != bitmap.viewport.h);
+#else
   while (++line < bitmap.viewport.h);
+#endif
 
   /* check viewport changes */
   if (bitmap.viewport.w != bitmap.viewport.ow)
@@ -1099,7 +1125,7 @@ void system_frame_scd(int do_skip)
     bitmap.viewport.ow = bitmap.viewport.w;
     bitmap.viewport.changed |= 1;
   }
-  
+
   /* prepare for next SCD frame */
   scd_end_frame(scd.cycles);
 
@@ -1218,7 +1244,7 @@ void system_frame_sms(int do_skip)
         }
       }
     }
-    
+
     /* check viewport changes */
     if (bitmap.viewport.h != bitmap.viewport.oh)
     {
@@ -1397,7 +1423,7 @@ int lines_per_frame_adjusted = lines_per_frame-1;
     {
       vdp_dma_update(mcycles_vdp);
     }
-    
+
     /* parse first line of sprites */
     if (reg[1] & 0x40)
     {
@@ -1413,7 +1439,7 @@ int lines_per_frame_adjusted = lines_per_frame-1;
     {
       render_obj(1);
     }
-    
+
     /* Sprites pre-processing occurs even when display is disabled */
     parse_satb(-1);
   }
@@ -1429,7 +1455,7 @@ int lines_per_frame_adjusted = lines_per_frame-1;
 
   /* latch Vertical Scroll register */
   vscroll = reg[9];
-  
+
   /* reset line count */
   line = 0;
 
@@ -1463,7 +1489,7 @@ int lines_per_frame_adjusted = lines_per_frame-1;
     {
       /* reload H-Int counter */
       h_counter = reg[10];
-      
+
       /* Horizontal Interrupt is pending */
       hint_pending = 0x10;
       if (reg[0] & 0x10)
