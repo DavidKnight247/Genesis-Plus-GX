@@ -121,15 +121,15 @@ void pcm_run(unsigned int length)
   if (pcm.enabled)
   {
     int i, j, l, r;
-  
+
     /* generate PCM samples */
-    for (i=0; i<length; i++)
+    for (i = 0; i != length; i++)
     {
       /* clear output */
       l = r = 0;
 
       /* run eight PCM channels */
-      for (j=0; j<8; j++)
+      for (j = 0; j != 8; j++)
       {
         /* check if channel is enabled */
         if (pcm.status & (1 << j))
@@ -175,10 +175,13 @@ void pcm_run(unsigned int length)
       }
 
       /* limiter */
-      if (l < -32768) l = -32768;
-      else if (l > 32767) l = 32767;
-      if (r < -32768) r = -32768;
-      else if (r > 32767) r = 32767;
+      if(l | r) //silence is faster :)
+      {
+        if      (l < -32768) l = -32768;
+        else if (l >  32767) l =  32767;
+        if      (r < -32768) r = -32768;
+        else if (r >  32767) r =  32767;
+      }
 
       /* check if PCM left output changed */
       if (pcm.out[0] != l)
@@ -243,6 +246,7 @@ void pcm_write(unsigned int address, unsigned char data)
   {
     /* number of internal clocks (samples) to run */
     clocks = (clocks + PCM_SCYCLES_RATIO - 1) / PCM_SCYCLES_RATIO;
+
     pcm_run(clocks);
   }
 
@@ -367,6 +371,7 @@ unsigned char pcm_read(unsigned int address)
   {
     /* number of internal clocks (samples) to run */
     clocks = (clocks + PCM_SCYCLES_RATIO - 1) / PCM_SCYCLES_RATIO;
+
     pcm_run(clocks);
   }
 
@@ -402,14 +407,15 @@ unsigned char pcm_read(unsigned int address)
 
 void pcm_ram_dma_w(unsigned int words)
 {
+#ifndef GCWZERO
   uint16 data;
-
+#endif
   /* CDC buffer source address */
   uint16 src_index = cdc.dac.w & 0x3ffe;
-  
+
   /* PCM-RAM destination address*/
   uint16 dst_index = (scd.regs[0x0a>>1].w << 2) & 0xffe;
-  
+
   /* update DMA destination address */
   scd.regs[0x0a>>1].w += (words >> 1);
 
@@ -419,12 +425,15 @@ void pcm_ram_dma_w(unsigned int words)
   /* DMA transfer */
   while (words--)
   {
+#ifdef GCWZERO
+    *(uint16 *)(pcm.bank + dst_index) = *(uint16 *)(cdc.ram + src_index);
+#else
     /* read 16-bit word from CDC buffer */
     data = *(uint16 *)(cdc.ram + src_index);
 
     /* write 16-bit word to PCM RAM (endianness does not matter since PCM RAM is always accessed as byte)*/
     *(uint16 *)(pcm.bank + dst_index) = data ;
-
+#endif
     /* increment CDC buffer source address */
     src_index = (src_index + 2) & 0x3ffe;
 
@@ -432,4 +441,3 @@ void pcm_ram_dma_w(unsigned int words)
     dst_index = (dst_index + 2) & 0xffe;
   }
 }
-

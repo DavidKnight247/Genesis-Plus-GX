@@ -256,7 +256,7 @@ typedef struct
 
   uint instr_mode;      /* Stores whether we are in instruction mode or group 0/1 exception mode */
   uint run_mode;        /* Stores whether we are processing a reset, bus error, address error, or something else */
-  uint aerr_enabled;    /* Enables/deisables address error checks at runtime */
+  uint aerr_enabled;    /* Enables/disables address error checks at runtime */
   jmp_buf aerr_trap;    /* Address error jump */
   uint aerr_address;    /* Address error location */
   uint aerr_write_mode; /* Address error write mode */

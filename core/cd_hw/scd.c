@@ -103,14 +103,16 @@ void prg_ram_dma_w(unsigned int words)
   {
     /* read 16-bit word from CDC buffer */
     data = *(uint16 *)(cdc.ram + src_index);
-
+#ifdef GCWZERO
+    *(uint16 *)(scd.prg_ram + dst_index) = ((data >> 8) | (data << 8)) & 0xffff;
+#else
 #ifdef LSB_FIRST
     /* source data is stored in big endian format */
     data = ((data >> 8) | (data << 8)) & 0xffff;
 #endif
-
     /* write 16-bit word to PRG-RAM */
     *(uint16 *)(scd.prg_ram + dst_index) = data ;
+#endif
 
     /* increment CDC buffer source address */
     src_index = (src_index + 2) & 0x3ffe;

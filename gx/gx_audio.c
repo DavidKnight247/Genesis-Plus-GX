@@ -39,7 +39,7 @@
 
 #include "shared.h"
 
-/* Length is dimensionned for at least one frame of emulation */
+/* Length is dimensioned for at least one frame of emulation */
 #define SOUND_BUFFER_LEN 4096
 
 /* Number of sound buffers */
