@@ -2,10 +2,15 @@
 
 # Set debug to 1 if you want a debug build, 0 if you want a release build
 debug=0
+sdl2=1
 
+if [ "$sdl2" = "1" ]
+then
+echo '\n WARNING!!! SDL2 implementation is currently experimental and incomplete. \n'
+fi
 
 echo '\nCompiling source code\n'
-make DEBUG=$debug -f Makefile.gcw
+make DEBUG=$debug SDL2=$sdl2 -f Makefile.gcw
 
 if [ "$debug" = "0" ]
 then
