@@ -187,19 +187,19 @@ void cdd_reset(void)
 {
   /* reset cycle counter */
   cdd.cycles = 0;
-  
+
   /* reset drive access latency */
   cdd.latency = 0;
-  
+
   /* reset track index */
   cdd.index = 0;
-  
+
   /* reset logical block address */
   cdd.lba = 0;
 
   /* reset status */
   cdd.status = cdd.loaded ? CD_STOP : NO_DISC;
-  
+
   /* reset CD-DA fader (full volume) */
   cdd.volume = 0x400;
 

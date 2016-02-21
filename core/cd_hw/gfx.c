@@ -47,10 +47,10 @@ void word_ram_0_dma_w(unsigned int words)
 
   /* CDC buffer source address */
   uint16 src_index = cdc.dac.w & 0x3ffe;
-  
+
   /* WORD-RAM destination address*/
   uint32 dst_index = (scd.regs[0x0a>>1].w << 3) & 0x1fffe;
-  
+
   /* update DMA destination address */
   scd.regs[0x0a>>1].w += (words >> 2);
 
@@ -60,6 +60,9 @@ void word_ram_0_dma_w(unsigned int words)
   /* DMA transfer */
   while (words--)
   {
+#ifdef GCWZERO //is this any faster???
+    *(uint16 *)(scd.word_ram[0] + dst_index) = ((*(uint16 *)(cdc.ram + src_index) >> 8) | (*(uint16 *)(cdc.ram + src_index) << 8)) & 0xffff;
+#else
     /* read 16-bit word from CDC buffer */
     data = *(uint16 *)(cdc.ram + src_index);
 
@@ -70,6 +73,7 @@ void word_ram_0_dma_w(unsigned int words)
 
     /* write 16-bit word to WORD-RAM */
     *(uint16 *)(scd.word_ram[0] + dst_index) = data ;
+#endif
 
     /* increment CDC buffer source address */
     src_index = (src_index + 2) & 0x3ffe;
@@ -98,6 +102,9 @@ void word_ram_1_dma_w(unsigned int words)
   /* DMA transfer */
   while (words--)
   {
+#ifdef GCWZERO
+    *(uint16 *)(scd.word_ram[1] + dst_index) = ((*(uint16 *)(cdc.ram + src_index) >> 8) | (*(uint16 *)(cdc.ram + src_index) << 8)) & 0xffff;
+#else
     /* read 16-bit word from CDC buffer */
     data = *(uint16 *)(cdc.ram + src_index);
 
@@ -108,7 +115,7 @@ void word_ram_1_dma_w(unsigned int words)
 
     /* write 16-bit word to WORD-RAM */
     *(uint16 *)(scd.word_ram[1] + dst_index) = data ;
-
+#endif
     /* increment CDC buffer source address */
     src_index = (src_index + 2) & 0x3ffe;
 
@@ -136,6 +143,9 @@ void word_ram_2M_dma_w(unsigned int words)
   /* DMA transfer */
   while (words--)
   {
+#ifdef GCWZERO
+    *(uint16 *)(scd.word_ram_2M + dst_index) = ((*(uint16 *)(cdc.ram + src_index) >> 8) | (*(uint16 *)(cdc.ram + src_index) << 8)) & 0xffff;
+#else
     /* read 16-bit word from CDC buffer */
     data = *(uint16 *)(cdc.ram + src_index);
 
@@ -146,6 +156,7 @@ void word_ram_2M_dma_w(unsigned int words)
 
     /* write 16-bit word to WORD-RAM */
     *(uint16 *)(scd.word_ram_2M + dst_index) = data ;
+#endif
 
     /* increment CDC buffer source address */
     src_index = (src_index + 2) & 0x3ffe;
@@ -410,7 +421,7 @@ void gfx_init(void)
     row = (i >> 6) & 7;
     col = (i >> 3) & 7;
 
-    if (i & 4) { col = col ^ 7; }   /* HFLIP (always first) */ 
+    if (i & 4) { col = col ^ 7; }   /* HFLIP (always first) */
     if (i & 2) { col = col ^ 7; row = row ^ 7; }  /* ROLL1 */
     if (i & 1) { temp = col; col = row ^ 7; row = temp; } /* ROLL0 */
 
@@ -420,7 +431,7 @@ void gfx_init(void)
 }
 
 void gfx_reset(void)
-{ 
+{
   /* Reset cycle counter */
   gfx.cycles = 0;
 }
@@ -531,7 +542,7 @@ INLINE void gfx_render(uint32 bufferIndex, uint32 width)
         /*        s = stamp size (0=16x16, 1=32x32)              */
         /*      hrr = HFLIP & ROTATION bits                      */
         stamp_index |= gfx.lut_cell[stamp_data | ((scd.regs[0x58>>1].byte.l & 0x02) << 2 ) | ((ypos >> 8) & 0xc0) | ((xpos >> 10) & 0x30)] << 6;
-            
+
         /* pixel  offset (0-63)                              */
         /* table entry = yyyxxxhrr (9 bits)                  */
         /* with: yyy = pixel row  (0-7) = (ypos >> 11) & 7   */
@@ -542,7 +553,7 @@ INLINE void gfx_render(uint32 bufferIndex, uint32 width)
         /* read pixel pair (2 pixels/byte) */
         pixel_out = READ_BYTE(scd.word_ram_2M, stamp_index >> 1);
 
-        /* extract left or rigth pixel */
+        /* extract left or right pixel */
         if (stamp_index & 1)
         {
            pixel_out &= 0x0f;
@@ -562,7 +573,7 @@ INLINE void gfx_render(uint32 bufferIndex, uint32 width)
     /* read out paired pixel data */
     pixel_in = READ_BYTE(scd.word_ram_2M, bufferIndex >> 1);
 
-    /* update left or rigth pixel */
+    /* update left or right pixel */
     if (bufferIndex & 1)
     {
       pixel_out |= (pixel_in & 0xf0);
@@ -579,6 +590,14 @@ INLINE void gfx_render(uint32 bufferIndex, uint32 width)
     WRITE_BYTE(scd.word_ram_2M, bufferIndex >> 1, pixel_out);
 
     /* check current pixel position  */
+#ifdef GCWZERO
+    if ((bufferIndex++ & 7) == 7)
+    {
+      /* next cell: increment image buffer offset by one column (minus 7 pixels) */
+      --bufferIndex;
+      bufferIndex += gfx.bufferOffset;
+    }
+#else
     if ((bufferIndex & 7) != 7)
     {
       /* next pixel */
@@ -589,7 +608,7 @@ INLINE void gfx_render(uint32 bufferIndex, uint32 width)
       /* next cell: increment image buffer offset by one column (minus 7 pixels) */
       bufferIndex += gfx.bufferOffset;
     }
-
+#endif
     /* increment pixel position */
     xpos += xoffset;
     ypos += yoffset;
@@ -602,7 +621,7 @@ void gfx_start(unsigned int base, int cycles)
   if (!(scd.regs[0x02>>1].byte.l & 0x04))
   {
     uint32 mask;
-    
+
     /* trace vector pointer */
     gfx.tracePtr = (uint16 *)(scd.word_ram_2M + ((base << 2) & 0x3fff8));
 
@@ -654,7 +673,7 @@ void gfx_start(unsigned int base, int cycles)
     gfx.cycles = cycles;
 
     /* update GFX chip timings (see AC3:Thunderhawk / Thunderstrike) */
-    gfx.cyclesPerLine = 4 * 5 * scd.regs[0x62>>1].w; 
+    gfx.cyclesPerLine = 4 * 5 * scd.regs[0x62>>1].w;
 
     /* start graphics operation */
     scd.regs[0x58>>1].byte.h = 0x80;

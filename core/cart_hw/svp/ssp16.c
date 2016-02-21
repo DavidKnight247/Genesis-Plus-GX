@@ -844,26 +844,35 @@ static u32 ptr1_read_(int ri, int isj2, int modi3)
     case 0x19:
     case 0x1a: rp = &ssp->ptr.bank.r0[t&3]; t = ssp->mem.bank.RAM0[*rp];
                if (!(rST&7)) { (*rp)++; return t; }
-               add = 1; goto modulo;
+               add = 1;   mask = (1 << (rST&7)) - 1;
+               *rp = (*rp & ~mask) | ((*rp + add) & mask);
+               return t;
     case 0x1b: return ssp->mem.bank.RAM0[3];
     case 0x1c:
     case 0x1d:
     case 0x1e: rp = &ssp->ptr.bank.r1[t&3]; t = ssp->mem.bank.RAM1[*rp];
                if (!(rST&7)) { (*rp)++; return t; }
-               add = 1; goto modulo;
+               add = 1;   mask = (1 << (rST&7)) - 1;
+               *rp = (*rp & ~mask) | ((*rp + add) & mask);
+               return t;
     case 0x1f: return ssp->mem.bank.RAM1[3];
     /* mod=2 (10), "-" */
     case 0x10:
     case 0x11:
     case 0x12: rp = &ssp->ptr.bank.r0[t&3]; t = ssp->mem.bank.RAM0[*rp];
                if (!(rST&7)) { (*rp)--; return t; }
-               add = -1; goto modulo;
+               add = -1;   mask = (1 << (rST&7)) - 1;
+               *rp = (*rp & ~mask) | ((*rp + add) & mask);
+               return t;
+
     case 0x13: return ssp->mem.bank.RAM0[2];
     case 0x14:
     case 0x15:
     case 0x16: rp = &ssp->ptr.bank.r1[t&3]; t = ssp->mem.bank.RAM1[*rp];
                if (!(rST&7)) { (*rp)--; return t; }
-               add = -1; goto modulo;
+               add = -1;   mask = (1 << (rST&7)) - 1;
+               *rp = (*rp & ~mask) | ((*rp + add) & mask);
+               return t;
     case 0x17: return ssp->mem.bank.RAM1[2];
     /* mod=0 (00) */
     case 0x00:
@@ -886,11 +895,6 @@ static u32 ptr1_read_(int ri, int isj2, int modi3)
   }
 
   return 0;
-
-modulo:
-  mask = (1 << (rST&7)) - 1;
-  *rp = (*rp & ~mask) | ((*rp + add) & mask);
-  return t;
 }
 
 static void ptr1_write(int op, u32 d)
@@ -1090,7 +1094,6 @@ void ssp1601_run(int cycles)
 {
   SET_PC(rPC);
   g_cycles = cycles;
-
   do
   {
     int op;
@@ -1224,8 +1227,11 @@ void ssp1601_run(int cycles)
         rX = ptr1_read_(op&3, 0, (op<<1)&0x18); /* ri (maybe rj?) */
         rY = ptr1_read_((op>>4)&3, 4, (op>>3)&0x18); /* rj */
         break;
+//      default:
 
       /* OP a, s */
+//    switch (op >> 9)
+//    {
       case 0x10: OP_CHECK32(OP_SUBA32); tmpv = REG_READ(op & 0x0f); OP_SUBA(tmpv); break;
       case 0x30: OP_CHECK32(OP_CMPA32); tmpv = REG_READ(op & 0x0f); OP_CMPA(tmpv); break;
       case 0x40: OP_CHECK32(OP_ADDA32); tmpv = REG_READ(op & 0x0f); OP_ADDA(tmpv); break;
@@ -1313,14 +1319,15 @@ void ssp1601_run(int cycles)
 #endif
         break;
 
-      default:
+       default:
 #ifdef LOG_SVP
         elprintf(EL_ANOMALY|EL_SVP, "ssp FIXME unhandled op %04x @ %04x", op, GET_PPC_OFFS());
 #endif
         break;
+//      }
     }
   }
-  while (--g_cycles > 0 && !(ssp->emu_status & SSP_WAIT_MASK));
+  while (--g_cycles && !(ssp->emu_status & SSP_WAIT_MASK));
 
   read_P(); /* update P */
   rPC = GET_PC();
