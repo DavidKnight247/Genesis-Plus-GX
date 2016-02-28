@@ -4,7 +4,6 @@
 #define MessageBox(owner, text, caption, type) printf("%s: %s\n", caption, text)
 #endif
 
-#include "SDL_config.h"
 #include <SDL.h>
 #include <SDL_thread.h>
 
@@ -17,14 +16,12 @@
 #ifndef DINGOO
 #include <SDL_image.h>
 #endif
-#include <time.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <malloc.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <errno.h>
-
 #define CHUNKSIZE 1024
 #define PRINTSETTING(px, py, pw, ph, setting) \
 { \
@@ -36,29 +33,30 @@
     SDL_BlitSurface(textSurface, NULL, menuSurface, &destination); \
     SDL_FreeSurface(textSurface); \
 }
-#define SPEED_HACKS 1
 #define SOUND_FREQUENCY 44100
-#define SOUND_FREQUENCY_VR 11025 //reduce sound frequency to allow svp chip emulation
 #define SOUND_SAMPLES_SIZE 2048
+#define SOUND_FREQUENCY_VR 11025 //reduce sound frequency to allow svp chip emulation
+#define SOUND_SAMPLES_SIZE_VR 512
+
+#if defined(USE_8BPP_RENDERING)
+#define BPP 8
+#elif defined(USE_16BPP_RENDERING)
+#define BPP 16
+#elif defined(USE_32BPP_RENDERING)
+#define BPP 32
+#endif
 #define VIDEO_WIDTH  320
 #define VIDEO_HEIGHT 240
+
 unsigned int joynum = 0;
 uint fullscreen = 1; /* SDL_FULLSCREEN */
-#ifdef GCW0_ALT_BLITTER
-static short unsigned int old_srect_y;
-static short unsigned int old_drect_y;
-#endif
-int    gcwzero_cycles = 3420;
 uint8  do_once        = 1;
 uint32 gcw0_w         = 320;
 uint32 gcw0_h         = 240;
-uint8  gotomenu       = 0;
+uint8  goto_menu       = 0;
 uint8  show_lightgun  = 0;
 uint8  virtua_racing  = 0;
 uint   post           = 0;
-uint   then           = 0;
-uint   frametime      = 0;
-static uint skipval   = 0;
 uint8  frameskip      = 0;
 uint8  afA            = 0;
 uint8  afB            = 0;
@@ -66,6 +64,9 @@ uint8  afC            = 0;
 uint8  afX            = 0;
 uint8  afY            = 0;
 uint8  afZ            = 0;
+
+//uint16 *bitmapline[240];
+
 time_t current_time;
 char rom_filename[256];
 #ifdef SDL2
@@ -81,120 +82,12 @@ const char *cursor[4]=
     "./SQUARE_02.png",
 };
 
-/***************************************************************
- * This function enables various speed hacks.                  *
- * If you don't want them undefine SPEED_HACKS.                *
- * This function is only called for Virtua Racing and MCD roms.*
- ***************************************************************/
-void calc_framerate(int optimisations)
-{
-#ifdef SPEED_HACKS
-    if (!gotomenu)
-    {
-	uint now  = SDL_GetTicks();
-        frametime = now - then;
-        then      = now;
-
-        static sint8 frameskipcount = 5;
-        //printf("\nframerate = %d", frametime);
-        if(optimisations)
-        {
-            if (virtua_racing)
-            {
-                if (config.optimisations == 1) //Balanced performance improvements
-                {
-                    if (frametime > (vdp_pal ? 50 : 60))
-                    {
-                        gcwzero_cycles = (vdp_pal ? 2859 : 2873);
-                        frameskipcount = 0;
-                        if (frameskip < 2)          frameskip ++;
-                    }
-                    else
-                    {
-                        gcwzero_cycles = (vdp_pal ? 3010 : 3192);
-                        if (++frameskipcount > 24)
-                        {
-                            if (frameskip)          frameskip--;
-                            frameskipcount = 0;
-                        }
-                    }
-                }
-                else //Full speed ahead!
-                {
-                    if (frametime > (vdp_pal ? 55 : 66))
-                    {
-                        gcwzero_cycles = (vdp_pal ? 2700 : 2720);
-                        frameskipcount = 0;
-                        if (frameskip < 3)          frameskip += 2;
-                    }
-                    else if (frametime > (vdp_pal ? 45 : 54))
-                    {
-                        gcwzero_cycles = (vdp_pal ? 2700 : 2720);
-                    }
-                    else
-                    {
-                        gcwzero_cycles = (vdp_pal ? 2859 : 2873);
-                        if (++frameskipcount > 35)
-                        {
-                            if (frameskip)          frameskip--;
-                            frameskipcount = 0;
-                        }
-                    }
-                }
-            } //VR optimisations
-            else //MCD optimisations
-            {
-                if (config.optimisations == 1) //Balanced optimisations
-                {
-                    if (frametime > (vdp_pal ? 55 : 66))
-                    {
-                        frameskipcount = 0;
-                        if (!frameskip)             frameskip++;
-                    }
-                    else if (frametime > (vdp_pal ? 50 : 60)) frameskipcount++;
-                    else
-                    {
-                        frameskipcount++;
-                        if (frameskipcount > 10)
-                        {
-                            if (frameskip)          --frameskip;
-                            frameskipcount = 0;
-                        }
-                    }
-                } //balanced optimisations
-                else //Speed optimisations
-                {
-                    if (frametime > (vdp_pal ? 54 : 65))
-                    {
-                        frameskipcount = 0;
-                        if (frameskip < 3)          frameskip++;
-                    }
-                    else if (frametime > (vdp_pal ? 50 : 60))
-                    {
-                        frameskipcount = 0;
-                        if (frameskip < 2)          frameskip++;
-                    }
-                    else
-                    {
-                        if (++frameskipcount > 34)
-                        {
-                            if (frameskip)          --frameskip;
-                            frameskipcount = 0;
-                        }
-                    }
-                } //Speed optimisations
-            } //MCD optimisations
-        }
-    }
-#endif
-}
-
 /* Sound */
 struct
 {
     char* current_pos;
     char* buffer;
-    int current_emulated_samples;
+    unsigned int current_emulated_samples;
 } sdl_sound;
 
 static uint8 brm_format[0x40] =
@@ -207,38 +100,100 @@ static uint8 brm_format[0x40] =
 
 static short soundframe[SOUND_SAMPLES_SIZE];
 
+static void sdl_sound_update(int enabled)
+{
+    unsigned int size = audio_update(soundframe) ;
+
+    if (enabled)
+    {
+        unsigned int i = 0;
+        short *out;
+
+        SDL_LockAudio();
+        out = (short*)sdl_sound.current_pos;
+
+
+        unsigned int n = (size+15)/16;
+        switch (size % 16) {
+        case 0: do { {*out++ = soundframe[i++];*out++ = soundframe[i++];}
+        case 15:     {*out++ = soundframe[i++];*out++ = soundframe[i++];}
+        case 14:     {*out++ = soundframe[i++];*out++ = soundframe[i++];}
+        case 13:     {*out++ = soundframe[i++];*out++ = soundframe[i++];}
+        case 12:     {*out++ = soundframe[i++];*out++ = soundframe[i++];}
+        case 11:     {*out++ = soundframe[i++];*out++ = soundframe[i++];}
+        case 10:     {*out++ = soundframe[i++];*out++ = soundframe[i++];}
+        case 9:      {*out++ = soundframe[i++];*out++ = soundframe[i++];}
+        case 8:      {*out++ = soundframe[i++];*out++ = soundframe[i++];}
+        case 7:      {*out++ = soundframe[i++];*out++ = soundframe[i++];}
+        case 6:      {*out++ = soundframe[i++];*out++ = soundframe[i++];}
+        case 5:      {*out++ = soundframe[i++];*out++ = soundframe[i++];}
+        case 4:      {*out++ = soundframe[i++];*out++ = soundframe[i++];}
+        case 3:      {*out++ = soundframe[i++];*out++ = soundframe[i++];}
+        case 2:      {*out++ = soundframe[i++];*out++ = soundframe[i++];}
+        case 1:      {*out++ = soundframe[i++];*out++ = soundframe[i++];}
+        } while ( --n > 0 );
+        }
+
+        sdl_sound.current_pos = (char*)out;
+        sdl_sound.current_emulated_samples += (size + size) * sizeof(short);
+        SDL_UnlockAudio();
+    }
+}
+
 static void sdl_sound_callback(void *userdata, Uint8 *stream, int len)
 {
+    unsigned int ces = sdl_sound.current_emulated_samples;
 
-    if (sdl_sound.current_emulated_samples < len)
+    if (ces < len)
     {
-        if(config.optimisations || config.skip_prevention)
+        if(config.optimisations)
+        {
+            if(!frameskip) frameskip++;
+            memcpy(stream, sdl_sound.buffer, len);
+            memcpy(sdl_sound.buffer, sdl_sound.current_pos - ces, ces);
+            sdl_sound.current_pos = sdl_sound.buffer + ces;
+        }
+        else if(config.skip_prevention)
         {
             memcpy(stream, sdl_sound.buffer, len);
-            memcpy(sdl_sound.buffer, sdl_sound.current_pos - sdl_sound.current_emulated_samples, sdl_sound.current_emulated_samples);
-            sdl_sound.current_pos = sdl_sound.buffer + sdl_sound.current_emulated_samples;
+            memcpy(sdl_sound.buffer, sdl_sound.current_pos - ces, ces);
+            sdl_sound.current_pos = sdl_sound.buffer + ces;
         }
         else
             memset(stream, 0, len);
     }
     else
     {
-        memcpy(stream, sdl_sound.buffer, len);
-        /* loop to compensate desync */
+        static int count = 10;
+        if(config.optimisations)
+        {
+          if(!(--count))
+          {
+            if(frameskip) frameskip--;
+            count = 9;
+          }
+        } else frameskip = 0;
         unsigned int len_times_two = len + len;
+        memcpy(stream, sdl_sound.buffer, len);
+
+        /* loop to compensate desync */
         do
         {
-            sdl_sound.current_emulated_samples -= len;
+            ces -= len;
         }
-        while(sdl_sound.current_emulated_samples > len_times_two);
-        memcpy(sdl_sound.buffer, sdl_sound.current_pos - sdl_sound.current_emulated_samples, sdl_sound.current_emulated_samples);
-        sdl_sound.current_pos = sdl_sound.buffer + sdl_sound.current_emulated_samples;
+        while(ces > len_times_two);
+
+        sdl_sound.current_emulated_samples = ces;
+        memcpy(sdl_sound.buffer, sdl_sound.current_pos - ces, ces);
+        sdl_sound.current_pos = sdl_sound.buffer + ces;
     }
 }
 
 static int sdl_sound_init()
 {
-    int n;
+    /* Create sound buffer in stack */
+    char n[SOUND_SAMPLES_SIZE * 2 * sizeof(short) * 20];
+
     SDL_AudioSpec as_desired, as_obtained;
 
     if (SDL_Init(SDL_INIT_AUDIO) < 0)
@@ -248,12 +203,17 @@ static int sdl_sound_init()
     }
 
     if (strstr(rominfo.international,"Virtua Racing"))
+    {
         as_desired.freq     = SOUND_FREQUENCY_VR; //speed hack
+        as_desired.samples  = SOUND_SAMPLES_SIZE_VR;
+    }
     else
+    {
         as_desired.freq     = SOUND_FREQUENCY;
+        as_desired.samples  = SOUND_SAMPLES_SIZE;
+    }
     as_desired.format   = AUDIO_S16LSB;
     as_desired.channels = 2;
-    as_desired.samples  = SOUND_SAMPLES_SIZE;
     as_desired.callback = sdl_sound_callback;
 
     if (SDL_OpenAudio(&as_desired, &as_obtained) == -1)
@@ -269,49 +229,21 @@ static int sdl_sound_init()
     }
 
     sdl_sound.current_emulated_samples = 0;
-    n = SOUND_SAMPLES_SIZE * 2 * sizeof(short) * 20;
-    sdl_sound.buffer = (char*)malloc(n);
+    sdl_sound.buffer = (char*)n;
     if (!sdl_sound.buffer)
     {
         MessageBox(NULL, "Can't allocate audio buffer", "Error", 0);
         return 0;
     }
-    memset(sdl_sound.buffer, 0, n);
     sdl_sound.current_pos = sdl_sound.buffer;
     return 1;
-}
-
-static void sdl_sound_update(int enabled)
-{
-    unsigned int size = audio_update(soundframe) ;
-
-    if (enabled)
-    {
-        unsigned int i = 0;
-        short *out;
-
-        SDL_LockAudio();
-        out = (short*)sdl_sound.current_pos;
-
-        unsigned int temp_size = size;
-        do
-        {
-            *out++ = soundframe[i++];
-            *out++ = soundframe[i++];
-        } while (--temp_size);
-
-        sdl_sound.current_pos = (char*)out;
-        sdl_sound.current_emulated_samples += size * 2 * sizeof(short);
-        SDL_UnlockAudio();
-    }
 }
 
 static void sdl_sound_close()
 {
     SDL_PauseAudio(1);
+    SDL_Delay(50);
     SDL_CloseAudio();
-    if (sdl_sound.buffer)
-        free(sdl_sound.buffer);
 }
 
 static void sdl_joystick_init()
@@ -327,10 +259,11 @@ static void sdl_joystick_init()
 md_ntsc_t *md_ntsc;
 sms_ntsc_t *sms_ntsc;
 
+
 struct
 {
-    SDL_Surface* surf_screen;
     SDL_Surface* surf_bitmap;
+    SDL_Surface* surf_screen;
     SDL_Rect srect;
     SDL_Rect drect;
     SDL_Rect my_srect; //for blitting small portions of the screen (custom blitter)
@@ -352,68 +285,93 @@ static int sdl_video_init()
     texture               = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_STREAMING, 320, 240);
 #else
 #ifdef DINGOO
-    sdl_video.surf_screen = SDL_SetVideoMode(VIDEO_WIDTH, VIDEO_HEIGHT, 16, SDL_SWSURFACE | SDL_FULLSCREEN);
+    sdl_video.surf_screen = SDL_SetVideoMode(VIDEO_WIDTH, VIDEO_HEIGHT, BPP, SDL_SWSURFACE | SDL_FULLSCREEN);
 #else //GCWZERO
     if     (config.renderer == 0) //Triple buffering
-        sdl_video.surf_screen = SDL_SetVideoMode(VIDEO_WIDTH, VIDEO_HEIGHT, 16, SDL_HWSURFACE | SDL_FULLSCREEN | SDL_TRIPLEBUF);
+        sdl_video.surf_screen = SDL_SetVideoMode(VIDEO_WIDTH, VIDEO_HEIGHT, BPP, SDL_HWSURFACE | SDL_FULLSCREEN | SDL_TRIPLEBUF);
     else if(config.renderer == 1) //Double buffering
-        sdl_video.surf_screen = SDL_SetVideoMode(VIDEO_WIDTH, VIDEO_HEIGHT, 16, SDL_HWSURFACE | SDL_FULLSCREEN | SDL_DOUBLEBUF);
+        sdl_video.surf_screen = SDL_SetVideoMode(VIDEO_WIDTH, VIDEO_HEIGHT, BPP, SDL_HWSURFACE | SDL_FULLSCREEN | SDL_DOUBLEBUF);
     else if(config.renderer == 2) //Software rendering
-        sdl_video.surf_screen = SDL_SetVideoMode(VIDEO_WIDTH, VIDEO_HEIGHT, 16, SDL_SWSURFACE | SDL_FULLSCREEN                );
+        sdl_video.surf_screen = SDL_SetVideoMode(VIDEO_WIDTH, VIDEO_HEIGHT, BPP, SDL_SWSURFACE | SDL_FULLSCREEN                );
 #endif
-    sdl_video.surf_bitmap = SDL_CreateRGBSurface(SDL_SWSURFACE, 320, 240, 16, 0, 0, 0, 0);
+    sdl_video.surf_bitmap = SDL_CreateRGBSurface(SDL_SWSURFACE, VIDEO_WIDTH, VIDEO_HEIGHT, BPP, 0, 0, 0, 0);
     SDL_ShowCursor(0);
 #endif //SDL2
     sdl_video.frames_rendered = 0;
     return 1;
 }
 
-static void sdl_video_update()
+enum {FRAME_START = 0, FRAME_GEN = 1, FRAME_BLIT = 2, FRAME_FLIP = 3};
+static int frame_progress = FRAME_START;
+static uint skipval   = 0;
+
+static void sdl_render_frame(void)
 {
-    enum {FRAME_START = 0, FRAME_GEN = 1, FRAME_BLIT = 2, FRAME_FLIP = 3};
-    static int frame_progress = FRAME_START;
-    do_blit = 0; //default is do not blit, we will change this later if a pixel changes on the screen.
     if (system_hw == SYSTEM_MCD)
     {
-        if ((skipval >= frameskip) && (skipval < 10))
+      if(frameskip)
+      {
+        if (frame_progress == FRAME_START)
         {
             system_frame_scd(0); //render frame
             frame_progress = FRAME_GEN;
-            skipval = 10;
-        } else {
-            do_blit = 1;
+            skipval = 0;
+        } else
+        {
             system_frame_scd(frameskip); //skip frame render
             ++skipval;
         }
+      } else
+      {
+            system_frame_scd(0); //render frame
+            frame_progress = FRAME_GEN;
+      }
     }
     else if ((system_hw & SYSTEM_PBC) == SYSTEM_MD)
     {
-        if ((skipval >= frameskip) && (skipval < 10))
+      if(frameskip)
+      {
+        if (frame_progress == FRAME_START)
         {
             system_frame_gen(0);
             frame_progress = FRAME_GEN;
-            skipval = 10;
-        } else {
-            do_blit = 1;
+            skipval = 0;
+        } else
+        {
             system_frame_gen(frameskip);
             ++skipval;
         }
+      } else
+      {
+            system_frame_gen(0);
+            frame_progress = FRAME_GEN;
+      }
     }
     else
     {
-        if (skipval >= frameskip)
+      if(frameskip)
+      {
+        if (frame_progress == FRAME_START)
         {
             system_frame_sms(0);
             frame_progress = FRAME_GEN;
-            skipval = 10;
-        } else {
-            do_blit = 1;
+            skipval = 0;
+        } else
+        {
             system_frame_sms(1);
             ++skipval;
         }
+      }
+      else
+      {
+            system_frame_sms(0);
+            frame_progress = FRAME_GEN;
+      }
     }
+}
 
-    /* viewport size changed */
+static void viewport_size_changed(void)
+{
     if (bitmap.viewport.changed & 1)
     {
         bitmap.viewport.changed &= ~1;
@@ -467,23 +425,44 @@ static void sdl_video_update()
             else                    SDL_UpdateRect(sdl_video.surf_screen, 0, 0, 0, 0);
         }
 #endif
-
-#ifdef GCW0_ALT_BLITTER
-        old_srect_y = sdl_video.srect.y;
-        old_drect_y = sdl_video.drect.y;
-        draw_from_line = 0;
-        sdl_video.my_srect.x = sdl_video.srect.x;
-        sdl_video.my_srect.y = sdl_video.srect.y;
-        sdl_video.my_srect.w = sdl_video.srect.w;
-        sdl_video.my_srect.h = sdl_video.srect.h;
-        sdl_video.my_drect.x = sdl_video.drect.x;
-        sdl_video.my_drect.y = sdl_video.drect.y;
-        sdl_video.my_drect.w = sdl_video.drect.w;
-        sdl_video.my_drect.h = sdl_video.drect.h;
-#endif
     }
+}
 
-//DK IPU scaling for gg/sms roms
+static void sdl_flip_screen(void)
+{
+    if ( !frameskip || skipval )
+    {
+#ifdef SDL2
+        SDL_UpdateTexture(texture, NULL, bitmap.data, 320 * sizeof(Uint32));
+        SDL_RenderClear(renderer);
+        SDL_RenderCopy(renderer, texture, NULL, NULL);
+        SDL_RenderPresent(renderer);
+#else
+        if(frame_progress == FRAME_BLIT)
+        {
+          if(config.renderer < 2) SDL_Flip      (sdl_video.surf_screen            );
+          else                    SDL_UpdateRect(sdl_video.surf_screen, sdl_video.my_drect.x, sdl_video.my_drect.y, sdl_video.my_drect.w, sdl_video.my_drect.h);
+          frame_progress = FRAME_START;
+        }
+        else if(show_lightgun)
+        {
+          if(config.renderer < 2) SDL_Flip      (sdl_video.surf_screen            );
+          else                    SDL_UpdateRect(sdl_video.surf_screen, sdl_video.my_drect.x, sdl_video.my_drect.y, sdl_video.my_drect.w, sdl_video.my_drect.h);
+          frame_progress = FRAME_START;
+        }
+#endif
+        skipval = 0;
+    }
+}
+
+static void sdl_video_update()
+{
+    sdl_render_frame();
+
+    /* viewport size changed */
+    viewport_size_changed();
+
+    /* IPU scaling for gg/sms roms */
 #ifndef SDL2
     if (config.gcw0_fullscreen)
     {
@@ -511,10 +490,6 @@ static void sdl_video_update()
                 sdl_video.drect.w = sdl_video.srect.w;
             }
 
-
-
-#ifndef GCW0_ALT_BLITTER
-          //This does not play nice with the custom blitter, off screen pixel changes mess everything up.
             if (strstr(rominfo.international,"Virtua Racing"))
             {
                 sdl_video.srect.y = (sdl_video.srect.h - VIDEO_HEIGHT) / 2 + 24;
@@ -522,7 +497,6 @@ static void sdl_video_update()
                 sdl_video.drect.y = 0;
             }
             else
-#endif
             {
                 sdl_video.drect.h = sdl_video.srect.h;
                 sdl_video.drect.y = 0;
@@ -531,30 +505,16 @@ static void sdl_video_update()
             gcw0_w = sdl_video.drect.w;
             gcw0_h = sdl_video.drect.h;
 
-
-#ifdef GCW0_ALT_BLITTER
-            old_srect_y = sdl_video.srect.y;
-            old_drect_y = sdl_video.drect.y;
-            draw_from_line = 0;
-            sdl_video.my_srect.x = sdl_video.srect.x;
-            sdl_video.my_srect.y = sdl_video.srect.y;
-            sdl_video.my_srect.w = sdl_video.srect.w;
-            sdl_video.my_srect.h = sdl_video.srect.h;
-            sdl_video.my_drect.x = sdl_video.drect.x;
-            sdl_video.my_drect.y = sdl_video.drect.y;
-            sdl_video.my_drect.w = sdl_video.drect.w;
-            sdl_video.my_drect.h = sdl_video.drect.h;
-#endif
             if ( (system_hw == SYSTEM_MARKIII) || (system_hw == SYSTEM_SMS) || (system_hw == SYSTEM_SMS2) || (system_hw == SYSTEM_PBC) )
             {
 #ifdef SDL2
 #else
 #ifdef DINGOO
-                sdl_video.surf_screen  = SDL_SetVideoMode(256,gcw0_h, 16, SDL_SWSURFACE                );
+                sdl_video.surf_screen  = SDL_SetVideoMode(256,gcw0_h, BPP, SDL_SWSURFACE                );
 #else
-                if      (config.renderer == 0) sdl_video.surf_screen  = SDL_SetVideoMode(256,gcw0_h, 16, SDL_HWSURFACE | SDL_TRIPLEBUF);
-                else if (config.renderer == 1) sdl_video.surf_screen  = SDL_SetVideoMode(256,gcw0_h, 16, SDL_HWSURFACE | SDL_DOUBLEBUF);
-                else if (config.renderer == 2) sdl_video.surf_screen  = SDL_SetVideoMode(256,gcw0_h, 16, SDL_SWSURFACE                );
+                if      (config.renderer == 0) sdl_video.surf_screen  = SDL_SetVideoMode(256,gcw0_h, BPP, SDL_HWSURFACE | SDL_TRIPLEBUF);
+                else if (config.renderer == 1) sdl_video.surf_screen  = SDL_SetVideoMode(256,gcw0_h, BPP, SDL_HWSURFACE | SDL_DOUBLEBUF);
+                else if (config.renderer == 2) sdl_video.surf_screen  = SDL_SetVideoMode(256,gcw0_h, BPP, SDL_SWSURFACE                );
 #endif //DINGOO
 #endif //SDL2
             }
@@ -563,11 +523,11 @@ static void sdl_video_update()
 #ifdef SDL2
 #else
 #ifdef DINGOO
-                sdl_video.surf_screen  = SDL_SetVideoMode(256,gcw0_h, 16, SDL_SWSURFACE                );
+                sdl_video.surf_screen  = SDL_SetVideoMode(256,gcw0_h, BPP, SDL_SWSURFACE                );
 #else
-                if           (config.renderer == 0) sdl_video.surf_screen  = SDL_SetVideoMode(gcw0_w,gcw0_h, 16, SDL_HWSURFACE | SDL_TRIPLEBUF);
-                else if      (config.renderer == 1) sdl_video.surf_screen  = SDL_SetVideoMode(gcw0_w,gcw0_h, 16, SDL_HWSURFACE | SDL_DOUBLEBUF);
-                else if      (config.renderer == 2) sdl_video.surf_screen  = SDL_SetVideoMode(gcw0_w,gcw0_h, 16, SDL_SWSURFACE                );
+                if           (config.renderer == 0) sdl_video.surf_screen  = SDL_SetVideoMode(gcw0_w,gcw0_h, BPP, SDL_HWSURFACE | SDL_TRIPLEBUF);
+                else if      (config.renderer == 1) sdl_video.surf_screen  = SDL_SetVideoMode(gcw0_w,gcw0_h, BPP, SDL_HWSURFACE | SDL_DOUBLEBUF);
+                else if      (config.renderer == 2) sdl_video.surf_screen  = SDL_SetVideoMode(gcw0_w,gcw0_h, BPP, SDL_SWSURFACE                );
 #endif //DINGOO
 #endif //SDL2
             }
@@ -577,46 +537,21 @@ static void sdl_video_update()
     if (show_lightgun && !config.gcw0_fullscreen)  //hack to remove cursor corruption if over game screen edge
         SDL_FillRect(sdl_video.surf_screen, 0, 0);
 
-    if (!frameskip || (skipval == 10) )
+    if (!frameskip || skipval )
     {
       //Custom Blitter, see core/vdp_render.c
-      if(do_blit && frame_progress == FRAME_GEN) //at least one pixel has changed so we need to blit and flip.
+      if(frame_progress == FRAME_GEN) //at least one pixel has changed so we need to blit and flip.
       {
-#ifdef GCW0_ALT_BLITTER
-        if(system_hw == SYSTEM_MCD || (system_hw & SYSTEM_PBC) == SYSTEM_MD)
-        {
-          // Define the new srect and drect value of y
-          sdl_video.my_srect.y = old_srect_y + draw_from_line - 1;
-          sdl_video.my_drect.y = old_drect_y + draw_from_line - 1;
-          sdl_video.my_srect.x = sdl_video.srect.x; //TODO need to add triple buffer support here
-          sdl_video.my_drect.x = sdl_video.drect.x; //TODO need to add triple buffer support here
-          sdl_video.my_srect.w = sdl_video.srect.w;
-          sdl_video.my_drect.w = sdl_video.drect.w;
-          //Reduce h if we're stopping blitting early
-          sdl_video.my_srect.h = sdl_video.my_drect.h = (draw_to_line - draw_from_line + 2);
-
-          if (config.gcw0_fullscreen)
-          {
-            gcw0_w = sdl_video.drect.w;
-            gcw0_h = sdl_video.drect.h;
-          }
-
-          SDL_BlitSurface(sdl_video.surf_bitmap, &sdl_video.my_srect, sdl_video.surf_screen, &sdl_video.my_drect);
-          skipval = 19;
-        } //system = mcd or md
-        else //for older systems we'll just blit, we don't need to optimise these further anyway.
-#endif
         {
           SDL_BlitSurface(sdl_video.surf_bitmap, &sdl_video.srect, sdl_video.surf_screen, &sdl_video.drect);
-          skipval = 19;
+          skipval = 0;
         }
         frame_progress = FRAME_BLIT;
-//TODO
-      } //!do_blit so we'll do nothing...unless...
+      }
       else if (show_lightgun)
       {
         SDL_BlitSurface(sdl_video.surf_bitmap, &sdl_video.srect, sdl_video.surf_screen, &sdl_video.drect);
-        skipval = 19;
+        skipval = 1;
         frame_progress = FRAME_BLIT;
       }
     }
@@ -684,30 +619,8 @@ static void sdl_video_update()
         SDL_FreeSurface(lightgunSurface);
     } //show_lightgun
 #endif
-    if ( !frameskip || (skipval > 19) )
-    {
-#ifdef SDL2
-        SDL_UpdateTexture(texture, NULL, bitmap.data, 320 * sizeof(Uint32));
-        SDL_RenderClear(renderer);
-        SDL_RenderCopy(renderer, texture, NULL, NULL);
-        SDL_RenderPresent(renderer);
-#else
-        if(do_blit && frame_progress == FRAME_BLIT)
-        {
-          if(config.renderer < 2) SDL_Flip      (sdl_video.surf_screen            );
-          else                    SDL_UpdateRect(sdl_video.surf_screen, sdl_video.my_drect.x, sdl_video.my_drect.y, sdl_video.my_drect.w, sdl_video.my_drect.h);
-          frame_progress = FRAME_START;
-        }
-        else if(show_lightgun)
-        {
-          if(config.renderer < 2) SDL_Flip      (sdl_video.surf_screen            );
-          else                    SDL_UpdateRect(sdl_video.surf_screen, sdl_video.my_drect.x, sdl_video.my_drect.y, sdl_video.my_drect.w, sdl_video.my_drect.h);
-          frame_progress = FRAME_START;
-        }
-#endif
-        skipval = 0;
-        
-    }
+
+    sdl_flip_screen();
 
     if (++sdl_video.frames_rendered == 3)
         sdl_video.frames_rendered = 0;
@@ -776,7 +689,7 @@ static int sdl_control_update(SDLKey keystate)
     return 1;
 }
 
-static void shutdown()
+static void shutdown(void)
 {
     FILE *fp;
 
@@ -871,9 +784,9 @@ static void shutdown()
     audio_shutdown();
     error_shutdown();
 
-    sdl_video_close();
     sdl_sound_close();
-    sdl_sync_close();
+//    sdl_video_close();
+//    sdl_sync_close();
     SDL_Quit();
 }
 
@@ -891,7 +804,7 @@ void gcw0_savestate(int slot)
     }
 }
 
-int cp(const char *to, const char *from) //taken from stackexchange.com user 'caf'
+int cp(const char *to, const char *from) //from stackexchange.com user 'caf'
 {
     int fd_to, fd_from;
     char buf[4096];
@@ -965,54 +878,42 @@ void gcw0_loadstate(int slot)
 }
 
 #ifdef GCWZERO
-static int gcw0menu(void)
+static void gcw0menu(void)
 {
-    enum {MAINMENU = 0, GRAPHICS_OPTIONS = 1, REMAP_OPTIONS = 2, SAVE_STATE = 3, LOAD_STATE = 4, MISC_OPTIONS = 5, AUTOFIRE_OPTIONS = 6, SOUND_OPTIONS = 7};
+    SDL_PauseAudio(1);
+    SDL_Delay(60); //pause to allow time for vsync
+
+    enum {MAINMENU = 0, GRAPHICS_OPTIONS = 10, REMAP_OPTIONS = 20, SAVE_STATE = 30, LOAD_STATE = 40, MISC_OPTIONS = 50, AUTOFIRE_OPTIONS = 60, SOUND_OPTIONS = 70};
     static int menustate = MAINMENU;
     static int renderer;
     renderer = config.renderer;
 
-  //Menu text
-    const char *gcw0menu_mainlist[10]=
-    { "Resume game", "Autofire toggle", "Save state", "Load state", "Graphics options", "Sound options", "Remap buttons", "Misc. Options", "Reset", "Quit" };
-    const char *gcw0menu_autofirelist[7]=
-    { "Return to main menu", "Toggle A", "Toggle B", "Toggle C", "Toggle X", "Toggle Y", "Toggle Z" };
-    const char *gcw0menu_gfxlist[5]=
-    { "Return to main menu", "Renderer", "Scaling", "Keep aspect ratio", "Scanlines (GG)" };
-    const char *gcw0menu_sndlist[4]=
-    { "Return to main menu", "Sound", "FM sound (SMS)", "Stop lag" };
-    const char *gcw0menu_numericlist[5]=
-    { " 0", " 1", " 2", " 3", " 4" };
-    const char *gcw0menu_optimisations[3]=
-    { " Off", " On: Balanced", " On: Performance" };
-    const char *gcw0menu_renderer[3]=
-    { " HW Triple Buf", " HW Double Buf", " Software" };
-    const char *gcw0menu_onofflist[2]=
-    { " Off", " On" };
-    const char *gcw0menu_deadzonelist[7]=
-    { " 0", " 5,000", " 10,000", " 15,000", " 20,000", " 25,000", " 30,000" };
-    const char *gcw0menu_remapoptionslist[9]=
-    { "Return to main menu", "A", "B", "C", "X", "Y", "Z", "Start", "Mode" };
-    const char *gcw0menu_savestate[10]=
-    { "Back to main menu", "Save state 1 (Quicksave)", "Save state 2", "Save state 3", "Save state 4", "Save state 5", "Save state 6", "Save state 7", "Save state 8", "Save state 9" };
-    const char *gcw0menu_loadstate[10]=
-    { "Back to main menu", "Load state 1 (Quickload)", "Load state 2", "Load state 3", "Load state 4", "Load state 5", "Load state 6", "Load state 7", "Load state 8", "Load state 9" };
-    const char *gcw0menu_misc[8]=
-    { "Back to main menu", "Optimisations (MCD/VR)", "Resume on Save/Load", "A-stick", "A-stick deadzone", "Lock-on(MD)", "Lightgun speed", "Lightgun Cursor" };
-    const char *lock_on_desc[4]=
-    { "            Off  ", "       Game Genie", "    Action Replay", " Sonic & Knuckles" };
+    /* Menu text */
+    const char *gcw0menu_mainlist[10]=     { "Resume game", "Autofire toggle", "Save state", "Load state", "Graphics options", "Sound options", "Remap buttons", "Misc. Options", "Reset", "Quit" };
+    const char *gcw0menu_autofirelist[7]=  { "Return to main menu", "Toggle A", "Toggle B", "Toggle C", "Toggle X", "Toggle Y", "Toggle Z" };
+    const char *gcw0menu_gfxlist[5]=       { "Return to main menu", "Renderer", "Scaling", "Keep aspect ratio", "Scanlines (GG)" };
+    const char *gcw0menu_sndlist[4]=       { "Return to main menu", "Sound", "FM sound (SMS)", "Stop lag" };
+    const char *gcw0menu_numericlist[5]=   { " 0", " 1", " 2", " 3", " 4" };
+    const char *gcw0menu_optimisations[2]= { " Off", " On" };
+    const char *gcw0menu_renderer[3]=      { " HW Triple Buf", " HW Double Buf", " Software" };
+    const char *gcw0menu_onofflist[2]=     { " Off", " On" };
+    const char *gcw0menu_deadzonelist[7]=  { " 0", " 5,000", " 10,000", " 15,000", " 20,000", " 25,000", " 30,000" };
+    const char *gcw0menu_remapoptions[9]=  { "Return to main menu", "A", "B", "C", "X", "Y", "Z", "Start", "Mode" };
+    const char *gcw0menu_savestate[10]=    { "Back to main menu", "Save state 1 (Quicksave)", "Save state 2", "Save state 3", "Save state 4", "Save state 5", "Save state 6", "Save state 7", "Save state 8", "Save state 9" };
+    const char *gcw0menu_loadstate[10]=    { "Back to main menu", "Load state 1 (Quickload)", "Load state 2", "Load state 3", "Load state 4", "Load state 5", "Load state 6", "Load state 7", "Load state 8", "Load state 9" };
+    const char *gcw0menu_misc[8]=          { "Back to main menu", "Optimisations (MCD/VR)", "Resume on Save/Load", "A-stick", "A-stick deadzone", "Lock-on(MD)", "Lightgun speed", "Lightgun Cursor" };
+    const char *lock_on_desc[4]=           { "            Off  ", "       Game Genie", "    Action Replay", " Sonic & Knuckles" };
 
-    SDL_PauseAudio(1);
     bitmap.viewport.changed = 1; //change screen res if required
 
-  //set up surfaces
+    /* Set up surfaces */
     SDL_Surface *tempbgSurface = NULL;
     SDL_Surface *bgSurface     = NULL;
     SDL_Surface *menuSurface   = NULL;
     menuSurface = SDL_CreateRGBSurface(SDL_SWSURFACE, 320, 240, 32, 0, 0, 0, 0);
 
-    /* display menu */
-  //change video mode
+    /* Display menu */
+    /* Change video mode */
 #ifndef SDL2
 #ifdef DINGOO
     sdl_video.surf_screen  = SDL_SetVideoMode(320,240, 32, SDL_SWSURFACE                );
@@ -1023,10 +924,10 @@ static int gcw0menu(void)
 #endif //DINGOO
 #endif //!SDL2
 
-  //blank screen
+    /* Blank screen */
     SDL_FillRect(sdl_video.surf_screen, 0, 0);
 
-  //setup fonts
+    /* Setup fonts */
     TTF_Init();
     TTF_Font *ttffont = NULL;
     ttffont = TTF_OpenFont("./ProggyTiny.ttf", 16);
@@ -1034,7 +935,7 @@ static int gcw0menu(void)
     SDL_Color text_color = {180, 180, 180};
     SDL_Color selected_text_color = {23, 86, 155}; //selected colour = Sega blue ;)
 
-  //show background hardware image
+    /* Show background hardware image */
     switch(system_hw)
     {
     case SYSTEM_PICO:
@@ -1064,27 +965,27 @@ static int gcw0menu(void)
 #endif
     SDL_FreeSurface(tempbgSurface);
 
-  //start menu loop
-    while(gotomenu)
+    /* Start menu loop */
+    while(goto_menu)
     {
         static int selectedoption = 0;
         char remap_text[256];
         char load_state_screenshot[256];
         int savestate = 0;
 
-      //Initialise surfaces
+        /* Initialise surfaces */
         SDL_Surface *textSurface;
         SDL_Surface *textSurfaceVersion;
         SDL_Surface *MenuBackground;
 
-      //Blit the background image
+        /* Blit the background image */
         SDL_BlitSurface(bgSurface, NULL, menuSurface, NULL);
 
-      //Fill menu box
+        /* Fill menu box */
         SDL_Rect rect;
         if (menustate == REMAP_OPTIONS)
         {
-            MenuBackground = SDL_CreateRGBSurface(SDL_SWSURFACE, 320, 185, 16, 0, 0, 0, 0);
+            MenuBackground = SDL_CreateRGBSurface(SDL_SWSURFACE, 320, 185, 32, 0, 0, 0, 0);
             rect.x = 0;
             rect.y = 35;
             rect.w = 320;
@@ -1092,7 +993,7 @@ static int gcw0menu(void)
         }
         else
         {
-            MenuBackground = SDL_CreateRGBSurface(SDL_SWSURFACE, 200, 185, 16, 0, 0, 0, 0);
+            MenuBackground = SDL_CreateRGBSurface(SDL_SWSURFACE, 200, 185, 32, 0, 0, 0, 0);
             rect.x = 60;
             rect.y = 35;
             rect.w = 200;
@@ -1105,7 +1006,7 @@ static int gcw0menu(void)
         SDL_SetAlpha(MenuBackground, SDL_SRCALPHA, 50);
 #endif
 
-      //Show title
+        /* Show title */
         SDL_Rect destination;
         destination.x = 70;
         destination.y = 40;
@@ -1113,7 +1014,7 @@ static int gcw0menu(void)
         destination.h = 50;
         textSurface = TTF_RenderText_Solid(ttffont, "Genesis Plus GX", text_color);
 
-      //Show version
+        /* Show version */
         SDL_Rect destination2;
         destination2.x = 0;
         destination2.y = 0;
@@ -1121,12 +1022,12 @@ static int gcw0menu(void)
         destination2.h = 50;
         textSurfaceVersion = TTF_RenderText_Solid(ttffont, "Build date " __DATE__, text_color_dull);
 
-      //Blit background and title
+        /* Blit background and title */
         SDL_BlitSurface(MenuBackground,     NULL, menuSurface, &rect);
         SDL_BlitSurface(textSurface,        NULL, menuSurface, &destination);
         SDL_BlitSurface(textSurfaceVersion, NULL, menuSurface, &destination2);
 
-      //Free surfaces
+        /* Free surfaces */
         SDL_FreeSurface(MenuBackground);
         SDL_FreeSurface(textSurface);
         SDL_FreeSurface(textSurfaceVersion);
@@ -1136,7 +1037,7 @@ static int gcw0menu(void)
         case MAINMENU:
         {
             int i;
-            for(i = 0; i < 10; i++)
+            for(i = 0; i < sizeof(gcw0menu_mainlist)/sizeof(gcw0menu_mainlist[0]); i++)
             {
                 destination.x = 70;
                 destination.y = 70+(15*i);
@@ -1154,7 +1055,7 @@ static int gcw0menu(void)
         case GRAPHICS_OPTIONS:
         {
             int i;
-            for(i = 0; i < 5; i++)
+            for(i = 0; i < sizeof(gcw0menu_gfxlist)/sizeof(gcw0menu_gfxlist[0]); i++)
             {
                 destination.x = 70;
                 destination.y = 70 + (15 * i);
@@ -1177,7 +1078,7 @@ static int gcw0menu(void)
         case SOUND_OPTIONS:
         {
             int i;
-            for(i = 0; i < 4; i++)
+            for(i = 0; i < sizeof(gcw0menu_sndlist)/sizeof(gcw0menu_sndlist[0]); i++)
             {
                 destination.x = 70;
                 destination.y = 70 + (15 * i);
@@ -1207,12 +1108,12 @@ static int gcw0menu(void)
             SDL_BlitSurface(textSurface, NULL, menuSurface, &destination);
             SDL_FreeSurface(textSurface);
             int i;
-            for(i = 0; i < 9; i++)
+            for(i = 0; i < sizeof(gcw0menu_remapoptions)/sizeof(gcw0menu_remapoptions[0]); i++)
             {
                 if (!i)
-                    sprintf(remap_text, gcw0menu_remapoptionslist[i]);  //for return option
+                    sprintf(remap_text, gcw0menu_remapoptions[i]);  //for return option
                 else
-                    sprintf(remap_text, "%-5s                   %-7s", gcw0menu_remapoptionslist[i], gcw0_get_key_name(config.buttons[i - 1]));
+                    sprintf(remap_text, "%-5s                   %-7s", gcw0menu_remapoptions[i], gcw0_get_key_name(config.buttons[i - 1]));
                 destination.x = 30;
                 if (!i)
                     destination.y = 60;
@@ -1231,7 +1132,7 @@ static int gcw0menu(void)
         }
         case SAVE_STATE:
         {
-          //Show saved BMP as background if available
+            /* Show saved BMP as background if available */
             sprintf(load_state_screenshot,"%s/%s.%d.bmp", get_save_directory(), rom_filename, selectedoption - 30);
             SDL_Surface* screenshot;
             screenshot = SDL_LoadBMP(load_state_screenshot);
@@ -1243,8 +1144,8 @@ static int gcw0menu(void)
                 destination.h = 240;
                 SDL_BlitSurface(screenshot, NULL, menuSurface, &destination);
 
-              //Fill menu box
-                SDL_Surface *MenuBackground = SDL_CreateRGBSurface(SDL_SWSURFACE, 180, 185, 16, 0, 0, 0, 0);
+                /* Fill menu box */
+                SDL_Surface *MenuBackground = SDL_CreateRGBSurface(SDL_SWSURFACE, 180, 185, BPP, 0, 0, 0, 0);
                 SDL_Rect rect;
                 rect.x = 60;
                 rect.y = 35;
@@ -1259,7 +1160,7 @@ static int gcw0menu(void)
                 SDL_BlitSurface(MenuBackground, NULL, menuSurface, &rect);
                 SDL_FreeSurface(MenuBackground);
             }
-          //Show title
+            /* Show title */
             destination.x = 70;
             destination.y = 40;
             destination.w = 100;
@@ -1269,7 +1170,7 @@ static int gcw0menu(void)
             SDL_FreeSurface(textSurface);
 
             int i;
-            for(i = 0; i < 10; i++)
+            for(i = 0; i < sizeof(gcw0menu_savestate)/sizeof(gcw0menu_savestate[0]); i++)
             {
                 destination.x = 70;
                 destination.y = 70 + (15 * i);
@@ -1289,7 +1190,7 @@ static int gcw0menu(void)
 #ifndef DINGOO
             if (!savestate)
             {
-              //Show saved BMP as background if available
+                /* Show saved BMP as background if available */
                 sprintf(load_state_screenshot,"%s/%s.%d.bmp", get_save_directory(), rom_filename, selectedoption - 40);
                 SDL_Surface* screenshot;
                 screenshot = SDL_LoadBMP(load_state_screenshot);
@@ -1301,8 +1202,8 @@ static int gcw0menu(void)
                     destination.h = 240;
                     SDL_BlitSurface(screenshot, NULL, menuSurface, &destination);
 
-                  //Fill menu box
-                    SDL_Surface *MenuBackground = SDL_CreateRGBSurface(SDL_SWSURFACE, 180, 185, 16, 0, 0, 0, 0);
+                    /* Fill menu box */
+                    SDL_Surface *MenuBackground = SDL_CreateRGBSurface(SDL_SWSURFACE, 180, 185, BPP, 0, 0, 0, 0);
                     SDL_Rect rect;
                     rect.x = 60;
                     rect.y = 35;
@@ -1318,7 +1219,7 @@ static int gcw0menu(void)
                     SDL_FreeSurface(MenuBackground);
                 }
 
-              //Show title
+                /* Show title */
                 destination.x = 70;
                 destination.y = 40;
                 destination.w = 100;
@@ -1327,7 +1228,7 @@ static int gcw0menu(void)
                 SDL_BlitSurface(textSurface, NULL, menuSurface, &destination);
                 SDL_FreeSurface(textSurface);
                 int i;
-                for(i = 0; i < 10; i++)
+                for(i = 0; i < sizeof(gcw0menu_loadstate)/sizeof(gcw0menu_loadstate[0]); i++)
                 {
                     destination.x = 70;
                     destination.y = 70 + (15 * i);
@@ -1350,7 +1251,7 @@ static int gcw0menu(void)
         case MISC_OPTIONS:
         {
             int i;
-            for(i = 0; i < 8; i++)
+            for(i = 0; i < sizeof(gcw0menu_misc)/sizeof(gcw0menu_misc[0]); i++)
             {
                 destination.x = 70;
                 destination.y = 70 + (15 * i);
@@ -1370,7 +1271,8 @@ static int gcw0menu(void)
             PRINTSETTING(210, 70 + (15* 4), 100, 50, gcw0menu_deadzonelist[config.deadzone]);       //A-stick Sensitivity
             PRINTSETTING(144, 70 + (15* 5), 100, 50, lock_on_desc[config.lock_on]);                 //Display Lock-on Types
             PRINTSETTING(210, 70 + (15* 6), 100, 50, gcw0menu_numericlist[config.lightgun_speed]);  //Lightgun speed
-          //Lightgun Cursor
+
+            /* Lightgun Cursor */
             destination.y = 70 + (15 * 7);
             SDL_Surface *lightgunSurface;
             lightgunSurface = IMG_Load(cursor[config.cursor]);
@@ -1388,7 +1290,7 @@ static int gcw0menu(void)
         case AUTOFIRE_OPTIONS:
         {
             int i;
-            for(i = 0; i < 7; i++)
+            for(i = 0; i < sizeof(gcw0menu_autofirelist)/sizeof(gcw0menu_autofirelist[0]); i++)
             {
                 destination.x = 70;
                 destination.y = 70 + (15 * i);
@@ -1461,7 +1363,8 @@ static int gcw0menu(void)
             keystate2 = SDL_GetKeyState(NULL);
 #endif
             if (menustate == REMAP_OPTIONS)
-            { //REMAP_OPTIONS needs to capture all input
+            {
+                /* REMAP_OPTIONS needs to capture all input */
 #ifdef SDL2
                 SDL_Keycode pressed_key = 0;
 #else
@@ -1515,33 +1418,35 @@ static int gcw0menu(void)
 
             if (keystate2[SDLK_DOWN])
             {
+                /* Warp to top of menu? */
                 selectedoption++;
-                if (selectedoption == 10) selectedoption =  0; //main menu
-                else if (selectedoption == 15) selectedoption = 10; //graphics menu
-                else if (selectedoption == 29) selectedoption = 20; //remap menu
-                else if (selectedoption == 40) selectedoption = 30; //save menu
-                else if (selectedoption == 50) selectedoption = 40; //load menu
-                else if (selectedoption == 58) selectedoption = 50; //misc menu
-                else if (selectedoption == 67) selectedoption = 60; //autofire menu
-                else if (selectedoption == 74) selectedoption = 70; //sound menu
+                if      (selectedoption == GRAPHICS_OPTIONS) selectedoption = MAINMENU;
+                else if (selectedoption == 15              ) selectedoption = GRAPHICS_OPTIONS;
+                else if (selectedoption == 29              ) selectedoption = REMAP_OPTIONS;
+                else if (selectedoption == LOAD_STATE      ) selectedoption = SAVE_STATE;
+                else if (selectedoption == MISC_OPTIONS    ) selectedoption = LOAD_STATE;
+                else if (selectedoption == 58              ) selectedoption = MISC_OPTIONS;
+                else if (selectedoption == 67              ) selectedoption = AUTOFIRE_OPTIONS;
+                else if (selectedoption == 74              ) selectedoption = SOUND_OPTIONS;
                 SDL_Delay(100);
     	    }
             else if (keystate2[SDLK_UP])
             {
-
-                if      (selectedoption ==   0) selectedoption = 10; //main menu
-                else if (selectedoption ==  10) selectedoption = 15; //graphics menu
-                else if (selectedoption ==  20) selectedoption = 29; //remap menu
-                else if (selectedoption ==  30) selectedoption = 40; //save menu
-                else if (selectedoption ==  40) selectedoption = 50; //load menu
-                else if (selectedoption ==  50) selectedoption = 58; //misc menu
-                else if (selectedoption ==  60) selectedoption = 67; //autofire menu
-                else if (selectedoption ==  70) selectedoption = 74; //sound menu
+                /* Warp to bottom of menu? */
+                if      (selectedoption ==  MAINMENU       ) selectedoption = GRAPHICS_OPTIONS; //main menu
+                else if (selectedoption ==  GRAPHICS_OPTIONS) selectedoption = 15; //graphics menu
+                else if (selectedoption ==  REMAP_OPTIONS   ) selectedoption = 29; //remap menu
+                else if (selectedoption ==  SAVE_STATE      ) selectedoption = LOAD_STATE; //save menu
+                else if (selectedoption ==  LOAD_STATE      ) selectedoption = MISC_OPTIONS; //load menu
+                else if (selectedoption ==  MISC_OPTIONS    ) selectedoption = 58; //misc menu
+                else if (selectedoption ==  AUTOFIRE_OPTIONS) selectedoption = 67; //autofire menu
+                else if (selectedoption ==  SOUND_OPTIONS   ) selectedoption = 74; //sound menu
                 selectedoption--;
                 SDL_Delay(100);
             }
-	    else if (keystate2[SDLK_LALT] && menustate != REMAP_OPTIONS) //back to last menu or quit menu
+	    else if (keystate2[SDLK_LALT] && menustate != REMAP_OPTIONS)
             {
+                /* Quit current menu */
                 SDL_Delay(130);
                 switch(menustate)
                 {
@@ -1556,8 +1461,8 @@ static int gcw0menu(void)
                 case SOUND_OPTIONS:
                     menustate = MAINMENU; selectedoption = 5; break;
                 case MAINMENU:
-                    if (selectedoption == 20) selectedoption = 6;
-                    else                      gotomenu =  selectedoption = 0;
+                    if (selectedoption == REMAP_OPTIONS) selectedoption = 6;
+                    else                      goto_menu =  selectedoption = 0;
 	            break;
                 case MISC_OPTIONS:
                     menustate = MAINMENU; selectedoption = 7; break;
@@ -1569,30 +1474,30 @@ static int gcw0menu(void)
                 switch(selectedoption)
                 {
                 case 0: //Resume
-	            gotomenu=0; selectedoption=0; break;
+	            goto_menu=0; selectedoption=0; break;
                 case 1: //Autofire menu
-                    menustate = AUTOFIRE_OPTIONS; selectedoption = 60; break;
+                    menustate = selectedoption = AUTOFIRE_OPTIONS; break;
                 case 2: //Save
-                    menustate = SAVE_STATE; selectedoption = 30; break;
+                    menustate = selectedoption = SAVE_STATE; break;
                 case 3: //Load
-                    menustate = LOAD_STATE; selectedoption = 40; break;
+                    menustate = selectedoption = LOAD_STATE; break;
                 case 4: //Graphics
-                    menustate = GRAPHICS_OPTIONS; selectedoption = 10; break;
+                    menustate = selectedoption = GRAPHICS_OPTIONS; break;
                 case 5: //Sound
-                    menustate = SOUND_OPTIONS; selectedoption = 70; break;
+                    menustate = selectedoption = SOUND_OPTIONS; break;
                 case 6: //Remap
-                    menustate = REMAP_OPTIONS; selectedoption = 20; break;
+                    menustate = selectedoption = REMAP_OPTIONS; break;
                 case 7: //Misc.
-                    menustate = MISC_OPTIONS; selectedoption = 50; break;
+                    menustate = selectedoption = MISC_OPTIONS; break;
                 case 8: //Reset
-                    gotomenu = 0; selectedoption = 0; system_reset(); break;
+                    goto_menu = selectedoption = MAINMENU; system_reset(); break;
                 case 9: //Quit
                     exit(0); break;
                 case 10: //Back to main menu
                     menustate = MAINMENU; selectedoption = 4; break;
                 case 11: //Renderer
-                    config.renderer ++;
-                    if (config.renderer == 3) config.renderer = 0;
+                    if (config.renderer >= sizeof(config.renderer)/sizeof(uint8)) config.renderer = 0;
+                    else config.renderer ++;
                     config_save(); break;
                 case 12: //Scaling
                     config.gcw0_fullscreen = !config.gcw0_fullscreen; config_save(); break;
@@ -1615,7 +1520,8 @@ static int gcw0menu(void)
                 case 39:;//Save state 1-9
                     SDL_Delay(120);
                     gcw0_savestate(selectedoption - 30);
-                  //Save BMP screenshot
+
+                    /* Save BMP screenshot */
                     char save_state_screenshot[256];
                     sprintf(save_state_screenshot,"%s/%s.%d.bmp", get_save_directory(), rom_filename, selectedoption-30);
                     char save_state_screenshot2[256];
@@ -1627,16 +1533,10 @@ static int gcw0menu(void)
                         remove(save_state_screenshot);
                     }
                     cp(save_state_screenshot, save_state_screenshot2);
-                    if (config.sl_autoresume)
-                    {
-                        menustate = MAINMENU;
-                        gotomenu  = selectedoption = 0;
-                    }
+                    if (config.sl_autoresume) menustate = goto_menu = selectedoption = MAINMENU;
                     break;
                 case 40: //Back to main menu
-                    menustate = MAINMENU;
-                    selectedoption = 3;
-	            break;
+                    menustate = MAINMENU; selectedoption = 3; break;
                 case 41:
                 case 42:
                 case 43:
@@ -1648,35 +1548,33 @@ static int gcw0menu(void)
                 case 49:;//Load state 1-9
                     SDL_Delay(120);
                     gcw0_loadstate(selectedoption - 40);
-                    if (config.sl_autoresume)
-                    {
-                        menustate = MAINMENU;
-                        gotomenu  = selectedoption = 0;
-                    }
+                    if (config.sl_autoresume) menustate = goto_menu = selectedoption = MAINMENU;
                     break;
                 case 50: //return to main menu
                     menustate = MAINMENU; selectedoption = 7; break;
                 case 51: //Optimisations
-                    config.optimisations ++;
-                    if (config.optimisations == 3) config.optimisations = 0;
+                    if(config.optimisations >= sizeof(config.optimisations)/sizeof(uint8)) config.optimisations = 0;
+                    else config.optimisations ++;
                     config_save(); break;
                 case 52: //toggle auto resume when save/loading
                     config.sl_autoresume = !config.sl_autoresume; config_save(); break;
                 case 53: //toggle A-Stick
                     config.a_stick = !config.a_stick; config_save(); break;
                 case 54: //toggle A-Stick deadzone
-                    ++config.deadzone;
-                    if (config.deadzone == 7) config.deadzone = 0;
+                    if(config.deadzone >= sizeof(config.deadzone)/sizeof(uint8)) config.deadzone = 0;
+                    else config.deadzone++;
                     config_save(); break;
                 case 55: //toggle or change lock-on device
-                    config.lock_on = (++config.lock_on == 4)? 0 : config.lock_on; config_save(); break;
+                    if(config.lock_on >= sizeof(config.lock_on)/sizeof(uint8)) config.lock_on = 0;
+                    else config.lock_on++;
+                    config_save(); break;
                 case 56: //Lightgun speed
-                    config.lightgun_speed++;
-                    if (config.lightgun_speed == 4) config.lightgun_speed = 1;
+                    if(config.lightgun_speed >= sizeof(config.lightgun_speed)/sizeof(uint8)) config.lightgun_speed = 1;
+                    else config.lightgun_speed++;
                     config_save(); break;
                 case 57: //Change lightgun cursor
-                    config.cursor++;
-                    if (config.cursor == 4) config.cursor = 0;
+                    if(config.cursor >= sizeof(config.cursor)/sizeof(uint8)) config.cursor = 0;
+                    else config.cursor++;
                     config_save(); break;
                 case 60: //return to main menu
                     menustate = MAINMENU; selectedoption = 1; break;
@@ -1721,11 +1619,11 @@ static int gcw0menu(void)
 #ifdef SDL2
 #else
 #ifdef DINGOO
-            sdl_video.surf_screen  = SDL_SetVideoMode(256,gcw0_h, 16, SDL_SWSURFACE                );
+            sdl_video.surf_screen  = SDL_SetVideoMode(256,gcw0_h, BPP, SDL_SWSURFACE                );
 #else
-            if     (config.renderer == 0) sdl_video.surf_screen  = SDL_SetVideoMode(256,gcw0_h, 16, SDL_HWSURFACE | SDL_TRIPLEBUF);
-            else if(config.renderer == 1) sdl_video.surf_screen  = SDL_SetVideoMode(256,gcw0_h, 16, SDL_HWSURFACE | SDL_DOUBLEBUF);
-            else if(config.renderer == 2) sdl_video.surf_screen  = SDL_SetVideoMode(256,gcw0_h, 16, SDL_SWSURFACE                );
+            if     (config.renderer == 0) sdl_video.surf_screen  = SDL_SetVideoMode(256,gcw0_h, BPP, SDL_HWSURFACE | SDL_TRIPLEBUF);
+            else if(config.renderer == 1) sdl_video.surf_screen  = SDL_SetVideoMode(256,gcw0_h, BPP, SDL_HWSURFACE | SDL_DOUBLEBUF);
+            else if(config.renderer == 2) sdl_video.surf_screen  = SDL_SetVideoMode(256,gcw0_h, BPP, SDL_SWSURFACE                );
 #endif //DINGOO
 #endif
         }
@@ -1739,27 +1637,14 @@ static int gcw0menu(void)
             gcw0_w = sdl_video.drect.w;
             gcw0_h = sdl_video.drect.h;
 
-#ifdef GCW0_ALT_BLITTER
-            old_srect_y = sdl_video.srect.y;
-            old_drect_y = sdl_video.drect.y;
-            draw_from_line = 0;
-            sdl_video.my_srect.x = sdl_video.srect.x;
-            sdl_video.my_srect.y = sdl_video.srect.y;
-            sdl_video.my_srect.w = sdl_video.srect.w;
-            sdl_video.my_srect.h = sdl_video.srect.h;
-            sdl_video.my_drect.x = sdl_video.drect.x;
-            sdl_video.my_drect.y = sdl_video.drect.y;
-            sdl_video.my_drect.w = sdl_video.drect.w;
-            sdl_video.my_drect.h = sdl_video.drect.h;
-#endif
 #ifdef SDL2
 #else
 #ifdef DINGOO
-            sdl_video.surf_screen  = SDL_SetVideoMode(256,gcw0_h, 16, SDL_SWSURFACE                );
+            sdl_video.surf_screen  = SDL_SetVideoMode(256,gcw0_h, BPP, SDL_SWSURFACE                );
 #else
-            if     (config.renderer == 0) sdl_video.surf_screen  = SDL_SetVideoMode(gcw0_w,gcw0_h, 16, SDL_HWSURFACE | SDL_TRIPLEBUF);
-            else if(config.renderer == 1) sdl_video.surf_screen  = SDL_SetVideoMode(gcw0_w,gcw0_h, 16, SDL_HWSURFACE | SDL_DOUBLEBUF);
-            else if(config.renderer == 2) sdl_video.surf_screen  = SDL_SetVideoMode(gcw0_w,gcw0_h, 16, SDL_SWSURFACE                );
+            if     (config.renderer == 0) sdl_video.surf_screen  = SDL_SetVideoMode(gcw0_w,gcw0_h, BPP, SDL_HWSURFACE | SDL_TRIPLEBUF);
+            else if(config.renderer == 1) sdl_video.surf_screen  = SDL_SetVideoMode(gcw0_w,gcw0_h, BPP, SDL_HWSURFACE | SDL_DOUBLEBUF);
+            else if(config.renderer == 2) sdl_video.surf_screen  = SDL_SetVideoMode(gcw0_w,gcw0_h, BPP, SDL_SWSURFACE                );
 #endif //DINGOO
 #endif
         }
@@ -1768,14 +1653,15 @@ static int gcw0menu(void)
 #ifdef SDL2
 #else
 #ifdef DINGOO
-            sdl_video.surf_screen  = SDL_SetVideoMode(256,gcw0_h, 16, SDL_SWSURFACE                );
+            sdl_video.surf_screen  = SDL_SetVideoMode(256,gcw0_h, BPP, SDL_SWSURFACE                );
 #else
-            if     (config.renderer == 0) sdl_video.surf_screen  = SDL_SetVideoMode(320,240, 16, SDL_HWSURFACE | SDL_TRIPLEBUF);
-            else if(config.renderer == 1) sdl_video.surf_screen  = SDL_SetVideoMode(320,240, 16, SDL_HWSURFACE | SDL_DOUBLEBUF);
-            else if(config.renderer == 2) sdl_video.surf_screen  = SDL_SetVideoMode(320,240, 16, SDL_SWSURFACE                );
+            if     (config.renderer == 0) sdl_video.surf_screen  = SDL_SetVideoMode(320,240, BPP, SDL_HWSURFACE | SDL_TRIPLEBUF);
+            else if(config.renderer == 1) sdl_video.surf_screen  = SDL_SetVideoMode(320,240, BPP, SDL_HWSURFACE | SDL_DOUBLEBUF);
+            else if(config.renderer == 2) sdl_video.surf_screen  = SDL_SetVideoMode(320,240, BPP, SDL_SWSURFACE                );
 #endif //DINGOO
 #endif
     }
+    /* Clear screen */
 #ifdef SDL2
     SDL_SetRenderDrawColor(renderer, 0, 0, 0, 0);
     int i;
@@ -1794,21 +1680,15 @@ static int gcw0menu(void)
     }
 #endif
 
-#ifdef GCW0_ALT_BLITTER
-    draw_to_line = sdl_video.srect.h - sdl_video.srect.y;
-#endif
-
-  //reset semaphore to avoid temporary speedups on menu exit
+    /* Reset semaphore to avoid temporary speedups on menu exit */
     if (post)
     {
         do
         {
             SDL_SemWait(sdl_sync.sem_sync);
-            --post;
         }
-        while(post);
+        while(--post);
     }
-    return 1;
 }
 #endif
 
@@ -1831,7 +1711,8 @@ int sdl_input_update(void)
     {
     case DEVICE_LIGHTGUN:
         show_lightgun = 1;
-        /* get mouse coordinates (absolute values) */
+
+        /* Get mouse coordinates (absolute values) */
         int x,y;
         SDL_GetMouseState(&x,&y);
 
@@ -1845,6 +1726,7 @@ int sdl_input_update(void)
             input.analog[4][1] =  y - (VIDEO_HEIGHT - bitmap.viewport.h) / 2;
         }
         if (config.smsmaskleftbar) x += 8;
+
         /* TRIGGER, B, C (Menacer only), START (Menacer & Justifier only) */
         if (keystate[SDLK_ESCAPE])  input.pad[4] |= INPUT_START;
     default:
@@ -1856,7 +1738,8 @@ int sdl_input_update(void)
     {
 #ifdef GCWZERO
         show_lightgun = 2;
-        /* get mouse coordinates (absolute values) */
+
+        /* Get mouse coordinates (absolute values) */
         int x,y;
         int state = SDL_GetMouseState(&x,&y);
 
@@ -1876,7 +1759,7 @@ int sdl_input_update(void)
         if (state & SDL_BUTTON_MMASK) input.pad[joynum] |= INPUT_C;
         if (keystate[SDLK_ESCAPE])    input.pad[0]      |= INPUT_START;
 #else
-        /* get mouse coordinates (absolute values) */
+        /* Get mouse coordinates (absolute values) */
         int x,y;
         int state = SDL_GetMouseState(&x,&y);
 
@@ -1897,7 +1780,7 @@ int sdl_input_update(void)
 #ifndef GCWZERO
     case DEVICE_PADDLE:
     {
-        /* get mouse (absolute values) */
+        /* Get mouse (absolute values) */
         int x;
         int state = SDL_GetMouseState(&x, NULL);
 
@@ -1912,7 +1795,7 @@ int sdl_input_update(void)
 
     case DEVICE_SPORTSPAD:
     {
-        /* get mouse (relative values) */
+        /* Get mouse (relative values) */
         int x,y;
         int state = SDL_GetRelativeMouseState(&x,&y);
 
@@ -1929,8 +1812,8 @@ int sdl_input_update(void)
 
     case DEVICE_MOUSE:
     {
-    SDL_ShowCursor(1);
-        /* get mouse (relative values) */
+        SDL_ShowCursor(1);
+        /* Get mouse (relative values) */
         int x,y;
         int state = SDL_GetRelativeMouseState(&x,&y);
 
@@ -1992,7 +1875,7 @@ int sdl_input_update(void)
 
     case DEVICE_PICO:
     {
-        /* get mouse (absolute values) */
+        /* Get mouse (absolute values) */
         int x,y;
         int state = SDL_GetMouseState(&x,&y);
 
@@ -2010,7 +1893,7 @@ int sdl_input_update(void)
 
     case DEVICE_TEREBI:
     {
-        /* get mouse (absolute values) */
+        /* Get mouse (absolute values) */
         int x,y;
         int state = SDL_GetMouseState(&x,&y);
 
@@ -2026,7 +1909,7 @@ int sdl_input_update(void)
 
     case DEVICE_GRAPHIC_BOARD:
     {
-        /* get mouse (absolute values) */
+        /* Get mouse (absolute values) */
         int x,y;
         int state = SDL_GetMouseState(&x,&y);
 
@@ -2052,18 +1935,17 @@ int sdl_input_update(void)
 #endif
     default:
     {
-#ifdef GCWZERO
         /* Autofire */
         static int autofire = 0;
         if (afA && autofire && keystate[config.buttons[A]]) input.pad[joynum] |= INPUT_A;
-        else if (!afX       && keystate[config.buttons[A]]) input.pad[joynum] |= INPUT_A;
+        else if (!afA       && keystate[config.buttons[A]]) input.pad[joynum] |= INPUT_A;
         if (afB && autofire && keystate[config.buttons[B]]) input.pad[joynum] |= INPUT_B;
         else if (!afB       && keystate[config.buttons[B]]) input.pad[joynum] |= INPUT_B;
         if (afC && autofire && keystate[config.buttons[C]]) input.pad[joynum] |= INPUT_C;
         else if (!afC       && keystate[config.buttons[C]]) input.pad[joynum] |= INPUT_C;
         autofire = !autofire;
         if (keystate[config.buttons[START]]) input.pad[joynum] |= INPUT_START;
-        if (show_lightgun == 1 || show_lightgun == 2)
+        if (show_lightgun)
         {
             if (keystate[config.buttons[X]]) input.pad[4]      |= INPUT_A; //player 2
             if (keystate[config.buttons[Y]]) input.pad[4]      |= INPUT_B; //player 2
@@ -2080,15 +1962,18 @@ int sdl_input_update(void)
         if (keystate[config.buttons[MODE]])  input.pad[joynum] |= INPUT_MODE;
         if (keystate[SDLK_ESCAPE] && keystate[SDLK_RETURN])
         {
-            gotomenu=1;
+            /* Activate menu flag */
+            goto_menu = 1;
 
-//TODO      create screenshot now - this is not good practice as it shortens the SD card life slightly but I cannot figure out how to do it from within the menu :(
+//TODO      FIXME Create screenshot now 
+//          This is not good practice as it shortens the SD card life
+//          but I cannot figure out how to do it from within the menu loop :(
             if (!config.gcw0_fullscreen)
             {
                 char save_state_screenshot[256];
                 sprintf(save_state_screenshot,"%s/%s.", get_save_directory(), rom_filename);
                 SDL_Surface* save_screenshot;
-                save_screenshot = SDL_CreateRGBSurface(SDL_SWSURFACE, sdl_video.srect.w, sdl_video.srect.h, 16, 0, 0, 0, 0);
+                save_screenshot = SDL_CreateRGBSurface(SDL_SWSURFACE, sdl_video.srect.w, sdl_video.srect.h, BPP, 0, 0, 0, 0);
                 SDL_Rect temp;
                 temp.x = temp.y = 0;
                 temp.w = sdl_video.srect.w;
@@ -2103,7 +1988,7 @@ int sdl_input_update(void)
                 char save_state_screenshot[256];
                 sprintf(save_state_screenshot,"%s/%s.", get_save_directory(), rom_filename);
                 SDL_Surface* save_screenshot;
-                save_screenshot = SDL_CreateRGBSurface(SDL_SWSURFACE, gcw0_w, gcw0_h, 16, 0, 0, 0, 0);
+                save_screenshot = SDL_CreateRGBSurface(SDL_SWSURFACE, gcw0_w, gcw0_h, BPP, 0, 0, 0, 0);
                 SDL_Rect temp;
                 temp.x = temp.y = 0;
                 temp.w = gcw0_w;
@@ -2116,7 +2001,7 @@ int sdl_input_update(void)
         }
         if (keystate[SDLK_ESCAPE] && keystate[SDLK_TAB])
         {
-          //save to quicksave slot
+            /* Save to quicksave slot */
             char save_state_file[256];
             sprintf(save_state_file,"%s/%s.gp1", get_save_directory(), rom_filename);
                 FILE *f = fopen(save_state_file,"wb");
@@ -2127,13 +2012,13 @@ int sdl_input_update(void)
                     fwrite(&buf, len, 1, f);
                     fclose(f);
                 }
-          //Save BMP screenshot
+            /* Save BMP screenshot */
             char save_state_screenshot[256];
             sprintf(save_state_screenshot,"%s/%s.1.bmp", get_save_directory(), rom_filename);
             SDL_Surface* screenshot;
             if (!config.gcw0_fullscreen)
             {
-                screenshot = SDL_CreateRGBSurface(SDL_SWSURFACE, sdl_video.srect.w, sdl_video.srect.h, 16, 0, 0, 0, 0);
+                screenshot = SDL_CreateRGBSurface(SDL_SWSURFACE, sdl_video.srect.w, sdl_video.srect.h, BPP, 0, 0, 0, 0);
                 SDL_Rect temp;
                 temp.x = temp.y = 0;
                 temp.w = sdl_video.srect.w;
@@ -2145,7 +2030,7 @@ int sdl_input_update(void)
             }
             else
             {
-                screenshot = SDL_CreateRGBSurface(SDL_SWSURFACE, gcw0_w, gcw0_h, 16, 0, 0, 0, 0);
+                screenshot = SDL_CreateRGBSurface(SDL_SWSURFACE, gcw0_w, gcw0_h, BPP, 0, 0, 0, 0);
                 SDL_Rect temp;
                 temp.x = temp.y = 0;
                 temp.w = gcw0_w;
@@ -2160,7 +2045,7 @@ int sdl_input_update(void)
         }
         if (keystate[SDLK_ESCAPE] && keystate[SDLK_BACKSPACE])
         {
-          //load quicksave slot
+            /* Load quicksave slot */
             char save_state_file[256];
             sprintf(save_state_file,"%s/%s.gp1", get_save_directory(), rom_filename );
             FILE *f = fopen(save_state_file,"rb");
@@ -2174,28 +2059,12 @@ int sdl_input_update(void)
             SDL_Delay(250);
 
         }
-#else
-        if (keystate[SDLK_a])  input.pad[joynum] |= INPUT_A;
-        if (keystate[SDLK_s])  input.pad[joynum] |= INPUT_B;
-        if (keystate[SDLK_d])  input.pad[joynum] |= INPUT_C;
-        if (keystate[SDLK_f])  input.pad[joynum] |= INPUT_START;
-        if (keystate[SDLK_z])  input.pad[joynum] |= INPUT_X;
-        if (keystate[SDLK_x])  input.pad[joynum] |= INPUT_Y;
-        if (keystate[SDLK_c])  input.pad[joynum] |= INPUT_Z;
-        if (keystate[SDLK_v])  input.pad[joynum] |= INPUT_MODE;
-#endif
 
-#ifdef GCWZERO //A-stick support
-        static int MoveLeft  = 0;
-        static int MoveRight = 0;
-        static int MoveUp    = 0;
-        static int MoveDown  = 0;
-        Sint32     x_move    = 0;
-        Sint32     y_move    = 0;
-        static int lg_left   = 0;
-        static int lg_right  = 0;
-        static int lg_up     = 0;
-        static int lg_down   = 0;
+        /* A-stick support */
+        static int MoveLeft = 0, MoveRight = 0, MoveUp    = 0, MoveDown  = 0,
+                   lg_left  = 0, lg_right  = 0, lg_up     = 0, lg_down   = 0;
+        Sint32     x_move   = 0, y_move    = 0;
+
         SDL_Joystick* joy;
         if (SDL_NumJoysticks() > 0)
         {
@@ -2204,11 +2073,10 @@ int sdl_input_update(void)
             y_move = SDL_JoystickGetAxis(joy, 1);
         }
 
-      //Define deadzone of analogue joystick
-        int deadzone = config.deadzone;
-        deadzone *= 5000;
+        /* Define deadzone of analogue joystick */
+        unsigned int deadzone = config.deadzone * 5000;
 
-       //Control lightgun with A-stick if activated
+        /* Control lightgun with A-stick if activated */
         if (show_lightgun)
         {
             lg_left = lg_right = lg_up = lg_down = 0;
@@ -2230,7 +2098,7 @@ int sdl_input_update(void)
                 current_time = time(NULL);
             }
 
-          //Keep mouse within screen, wrap around!
+            /* Keep mouse within screen, wrap around! */
             int x,y;
             SDL_GetMouseState(&x,&y);
             if (!config.gcw0_fullscreen)
@@ -2251,16 +2119,16 @@ int sdl_input_update(void)
 //          SDL_WarpMouseInWindow( window, ( x+ ( ( lg_right - lg_left ) * config.lightgun_speed ) ) ,
 //                               ( y+ ( ( lg_down  - lg_up   ) * config.lightgun_speed ) ) );
 #else
+            /* Move cursor to correct location */
             SDL_WarpMouse((x + ((lg_right - lg_left) * config.lightgun_speed)),
                           (y + ((lg_down  - lg_up  ) * config.lightgun_speed)));
 #endif
 
         } else
-      //otherwise it's just mirroring the D-pad controls
+        /* Mirror the D-pad controls */
         if (config.a_stick)
         {
-            int deadzone = config.deadzone;
-            deadzone *= 5000;
+            unsigned int deadzone = config.deadzone * 5000;
             MoveLeft = MoveRight = MoveUp = MoveDown = 0;
 
             if (x_move < -deadzone) MoveLeft  = 1;
@@ -2268,27 +2136,32 @@ int sdl_input_update(void)
             if (y_move < -deadzone) MoveUp    = 1;
             if (y_move >  deadzone) MoveDown  = 1;
         }
-        if (show_lightgun == 1) //Genesis/MD D-pad controls player 2
+        if (show_lightgun)
         {
-            if (MoveUp              )  input.pad[4]      |= INPUT_UP;
-            if (MoveDown            )  input.pad[4]      |= INPUT_DOWN;
-            if (MoveLeft            )  input.pad[4]      |= INPUT_LEFT;
-            if (MoveRight           )  input.pad[4]      |= INPUT_RIGHT;
-            if (keystate[SDLK_UP]   )  input.pad[joynum] |= INPUT_UP;
-            if (keystate[SDLK_DOWN] )  input.pad[joynum] |= INPUT_DOWN;
-            if (keystate[SDLK_LEFT] )  input.pad[joynum] |= INPUT_LEFT;
-            if (keystate[SDLK_RIGHT])  input.pad[joynum] |= INPUT_RIGHT;
-        } else
-        if (show_lightgun == 2) //SMS D-pad controls player 2
-        {
-            if (MoveUp              )  input.pad[joynum] |= INPUT_UP;
-            if (MoveDown            )  input.pad[joynum] |= INPUT_DOWN;
-            if (MoveLeft            )  input.pad[joynum] |= INPUT_LEFT;
-            if (MoveRight           )  input.pad[joynum] |= INPUT_RIGHT;
-            if (keystate[SDLK_UP]   )  input.pad[4]      |= INPUT_UP;
-            if (keystate[SDLK_DOWN] )  input.pad[4]      |= INPUT_DOWN;
-            if (keystate[SDLK_LEFT] )  input.pad[4]      |= INPUT_LEFT;
-            if (keystate[SDLK_RIGHT])  input.pad[4]      |= INPUT_RIGHT;
+            if (show_lightgun == 1)
+            {
+                /* Genesis/MD D-pad controls player 2 */
+                if (MoveUp              )  input.pad[4]      |= INPUT_UP;
+                if (MoveDown            )  input.pad[4]      |= INPUT_DOWN;
+                if (MoveLeft            )  input.pad[4]      |= INPUT_LEFT;
+                if (MoveRight           )  input.pad[4]      |= INPUT_RIGHT;
+                if (keystate[SDLK_UP]   )  input.pad[joynum] |= INPUT_UP;
+                if (keystate[SDLK_DOWN] )  input.pad[joynum] |= INPUT_DOWN;
+                if (keystate[SDLK_LEFT] )  input.pad[joynum] |= INPUT_LEFT;
+                if (keystate[SDLK_RIGHT])  input.pad[joynum] |= INPUT_RIGHT;
+            } else
+            if (show_lightgun == 2)
+            {
+                /* SMS D-pad controls player 2 */
+                if (MoveUp              )  input.pad[joynum] |= INPUT_UP;
+                if (MoveDown            )  input.pad[joynum] |= INPUT_DOWN;
+                if (MoveLeft            )  input.pad[joynum] |= INPUT_LEFT;
+                if (MoveRight           )  input.pad[joynum] |= INPUT_RIGHT;
+                if (keystate[SDLK_UP]   )  input.pad[4]      |= INPUT_UP;
+                if (keystate[SDLK_DOWN] )  input.pad[4]      |= INPUT_DOWN;
+                if (keystate[SDLK_LEFT] )  input.pad[4]      |= INPUT_LEFT;
+                if (keystate[SDLK_RIGHT])  input.pad[4]      |= INPUT_RIGHT;
+            }
         } else
         {
 #ifdef SDL2
@@ -2300,15 +2173,9 @@ int sdl_input_update(void)
             else if (keystate[SDLK_RIGHT] || MoveRight)  input.pad[joynum] |= INPUT_RIGHT;
 #endif
         }
-#else
-        if      (keystate[SDLK_UP]   )  input.pad[joynum] |= INPUT_UP;
-        else if (keystate[SDLK_DOWN] )  input.pad[joynum] |= INPUT_DOWN;
-        if      (keystate[SDLK_LEFT] )  input.pad[joynum] |= INPUT_LEFT;
-        else if (keystate[SDLK_RIGHT])  input.pad[joynum] |= INPUT_RIGHT;
-#endif
         }
     }
-#endif //SDL2 skip this for now.
+#endif
     return 1;
 }
 
@@ -2329,13 +2196,13 @@ int main (int argc, char **argv)
     error_init();
     create_default_directories();
 
-    /* set default config */
+    /* Set default config */
     set_config_defaults();
 
-    /* using rom file name instead of crc code to save files */
+    /* Using rom file name instead of crc code to save files */
     sprintf(rom_filename, "%s",  get_file_name(argv[1]));
 
-    /* mark all BIOS as unloaded */
+    /* Mark all BIOS as unloaded */
     system_bios = 0;
 
     /* Genesis BOOT ROM support (2KB max) */
@@ -2345,14 +2212,14 @@ int main (int argc, char **argv)
     {
         int i;
 
-        /* read BOOT ROM */
+        /* Read BOOT ROM */
         fread(boot_rom, 1, 0x800, fp);
         fclose(fp);
 
-        /* check BOOT ROM */
+        /* Check BOOT ROM */
         if (!memcmp((char *)(boot_rom + 0x120),"GENESIS OS", 10))
         {
-            /* mark Genesis BIOS as loaded */
+            /* Mark Genesis BIOS as loaded */
             system_bios = SYSTEM_MD;
         }
 
@@ -2400,7 +2267,7 @@ int main (int argc, char **argv)
         config.dac_bits       = 14;
     }
 
-    /* initialize SDL */
+    /* Initialize SDL */
     if (SDL_Init(0) < 0)
     {
         char caption[256];
@@ -2413,8 +2280,9 @@ int main (int argc, char **argv)
     sdl_sound_init();
     sdl_sync_init();
 
-    /* initialize Genesis virtual system */
-    SDL_LockSurface(sdl_video.surf_bitmap);
+    /* Initialize Genesis virtual system */
+    if(SDL_MUSTLOCK(sdl_video.surf_bitmap))
+        SDL_LockSurface(sdl_video.surf_bitmap);
     memset(&bitmap, 0, sizeof(t_bitmap));
     bitmap.width        = 320;
     bitmap.height       = 240;
@@ -2428,10 +2296,20 @@ int main (int argc, char **argv)
     bitmap.pitch        = (bitmap.width * 4);
 #endif
     bitmap.data         = sdl_video.surf_bitmap->pixels;
-    SDL_UnlockSurface(sdl_video.surf_bitmap);
+
+/*
+int i = 0;
+while(i  < 239)
+{
+    bitmapline[i]         = (uint16 *)&bitmap.data[i * bitmap.pitch];
+    i++;
+}
+*/
+    if(SDL_MUSTLOCK(sdl_video.surf_bitmap))
+        SDL_UnlockSurface(sdl_video.surf_bitmap);
     bitmap.viewport.changed = 3;
 
-    /* initialize system hardware */
+    /* Initialize system hardware */
     if (strstr(rominfo.international,"Virtua Racing"))
         audio_init(SOUND_FREQUENCY_VR, (vdp_pal ? 50 : 60));
     else if (system_hw == SYSTEM_MCD)
@@ -2444,7 +2322,7 @@ int main (int argc, char **argv)
     char brm_file[256];
     if (system_hw == SYSTEM_MCD)
     {
-        /* load internal backup RAM */
+        /* Load internal backup RAM */
         sprintf(brm_file,"%s/%s", get_save_directory(), "scd.brm");
         fp = fopen(brm_file, "rb");
         if (fp!=NULL)
@@ -2453,21 +2331,21 @@ int main (int argc, char **argv)
             fclose(fp);
         }
 
-        /* check if internal backup RAM is formatted */
+        /* Check if internal backup RAM is formatted */
         if (memcmp(scd.bram + 0x2000 - 0x20, brm_format + 0x20, 0x20))
         {
-            /* clear internal backup RAM */
+            /* Clear internal backup RAM */
             memset(scd.bram, 0x00, 0x200);
 
             /* Internal Backup RAM size fields */
             brm_format[0x10] = brm_format[0x12] = brm_format[0x14] = brm_format[0x16] = 0x00;
             brm_format[0x11] = brm_format[0x13] = brm_format[0x15] = brm_format[0x17] = (sizeof(scd.bram) / 64) - 3;
 
-            /* format internal backup RAM */
+            /* Format internal backup RAM */
             memcpy(scd.bram + 0x2000 - 0x40, brm_format, 0x40);
         }
 
-        /* load cartridge backup RAM */
+        /* Load cartridge backup RAM */
         if (scd.cartridge.id)
         {
             sprintf(brm_file,"%s/%s", get_save_directory(), "cart.brm");
@@ -2478,24 +2356,24 @@ int main (int argc, char **argv)
                 fclose(fp);
             }
 
-            /* check if cartridge backup RAM is formatted */
+            /* Check if cartridge backup RAM is formatted */
             if (memcmp(scd.cartridge.area + scd.cartridge.mask + 1 - 0x20, brm_format + 0x20, 0x20))
             {
-                /* clear cartridge backup RAM */
+                /* Clear cartridge backup RAM */
                 memset(scd.cartridge.area, 0x00, scd.cartridge.mask + 1);
 
                 /* Cartridge Backup RAM size fields */
                 brm_format[0x10] = brm_format[0x12] = brm_format[0x14] = brm_format[0x16] = (((scd.cartridge.mask + 1) / 64) - 3) >> 8;
                 brm_format[0x11] = brm_format[0x13] = brm_format[0x15] = brm_format[0x17] = (((scd.cartridge.mask + 1) / 64) - 3) & 0xff;
 
-                /* format cartridge backup RAM */
+                /* Format cartridge backup RAM */
                 memcpy(scd.cartridge.area + scd.cartridge.mask + 1 - sizeof(brm_format), brm_format, sizeof(brm_format));
             }
         }
     }
     if (sram.on)
     {
-        /* load SRAM (max. 64 KB)*/
+        /* Load SRAM (max. 64 KB)*/
         char save_file[256];
         sprintf(save_file,"%s/%s.srm", get_save_directory(), rom_filename);
         fp = fopen(save_file, "rb");
@@ -2509,16 +2387,16 @@ int main (int argc, char **argv)
         }
     }
 
-    /* reset system hardware */
+    /* Reset system hardware */
     system_reset();
 
     SDL_PauseAudio(!config.use_sound);
 
-    /* 3 frames = 50 ms (60hz) or 60 ms (50hz) */
+    /* Three frames = 50 ms (60hz) or 60 ms (50hz) */
     if (sdl_sync.sem_sync)
         SDL_AddTimer(vdp_pal ? 60 : 50, sdl_sync_timer_callback, (void *) 1);
 
-    /* emulation loop */
+    /* Emulation loop */
     while(running)
     {
         SDL_Event event;
@@ -2530,7 +2408,7 @@ int main (int argc, char **argv)
                     running = 0;
                 case SDL_KEYDOWN:
                     if(event.key.keysym.sym == SDLK_HOME) //Powerslider up
-                        gotomenu = 1;
+                        goto_menu = 1;
                 default:
                     break;
             }
@@ -2575,18 +2453,7 @@ int main (int argc, char **argv)
 
         if (!sdl_video.frames_rendered)
         {
-            if (system_hw == SYSTEM_MCD || virtua_racing)
-            {
-                if (config.optimisations)
-                    calc_framerate(1);
-                else
-                {
-                    /* reset optimisations */
-                    if(frameskip) frameskip = 0;
-                    if(gcwzero_cycles != 3420)  gcwzero_cycles = 3420;
-                }
-            }
-            if (!gotomenu)
+            if (!goto_menu)
             {
                 SDL_SemWait(sdl_sync.sem_sync);
                 if (post)    --post;
@@ -2595,9 +2462,9 @@ int main (int argc, char **argv)
                     do
                     {
                         SDL_SemWait(sdl_sync.sem_sync);
-                        --post;
+//                        --post;
                     }
-                    while(post);
+                    while(--post);
                 }
             }
             else    gcw0menu();

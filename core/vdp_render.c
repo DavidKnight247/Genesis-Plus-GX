@@ -43,18 +43,9 @@
 #include "md_ntsc.h"
 #include "sms_ntsc.h"
 
-unsigned int do_blit = 0;
-#ifdef GCW0_ALT_BLITTER
-unsigned int draw_from_line = 0;
-unsigned int draw_to_line = 1;
-unsigned int draw_from_line_temp = 0;
-unsigned int draw_to_line_temp = 1;
-#endif
-
 /*** NTSC Filters ***/
 extern md_ntsc_t *md_ntsc;
 extern sms_ntsc_t *sms_ntsc;
-
 
 /* Output pixels type*/
 #if defined(USE_8BPP_RENDERING)
@@ -65,11 +56,9 @@ extern sms_ntsc_t *sms_ntsc;
 #define PIXEL_OUT_T uint16
 #endif
 
-
 /* Pixel priority look-up tables information */
 #define LUT_MAX     (6)
 #define LUT_SIZE    (0x10000)
-
 
 #ifdef ALIGN_LONG
 #undef READ_LONG
@@ -186,49 +175,33 @@ INLINE void WRITE_LONG(void *address, uint32 data)
 #ifdef LSB_FIRST
 #define DRAW_COLUMN(ATTR, LINE) \
   GET_LSB_TILE(ATTR, LINE) \
-  WRITE_LONG(dst, src[0] | atex); \
-  dst++; \
-  WRITE_LONG(dst, src[1] | atex); \
-  dst++; \
+  WRITE_LONG(dst++, src[0] | atex); \
+  WRITE_LONG(dst++, src[1] | atex); \
   GET_MSB_TILE(ATTR, LINE) \
-  WRITE_LONG(dst, src[0] | atex); \
-  dst++; \
-  WRITE_LONG(dst, src[1] | atex); \
-  dst++;
+  WRITE_LONG(dst++, src[0] | atex); \
+  WRITE_LONG(dst++, src[1] | atex);
 #define DRAW_COLUMN_IM2(ATTR, LINE) \
   GET_LSB_TILE_IM2(ATTR, LINE) \
-  WRITE_LONG(dst, src[0] | atex); \
-  dst++; \
-  WRITE_LONG(dst, src[1] | atex); \
-  dst++; \
+  WRITE_LONG(dst++, src[0] | atex); \
+  WRITE_LONG(dst++, src[1] | atex); \
   GET_MSB_TILE_IM2(ATTR, LINE) \
-  WRITE_LONG(dst, src[0] | atex); \
-  dst++; \
-  WRITE_LONG(dst, src[1] | atex); \
-  dst++;
+  WRITE_LONG(dst++, src[0] | atex); \
+  WRITE_LONG(dst++, src[1] | atex);
 #else
 #define DRAW_COLUMN(ATTR, LINE) \
   GET_MSB_TILE(ATTR, LINE) \
-  WRITE_LONG(dst, src[0] | atex); \
-  dst++; \
-  WRITE_LONG(dst, src[1] | atex); \
-  dst++; \
+  WRITE_LONG(dst++, src[0] | atex); \
+  WRITE_LONG(dst++, src[1] | atex); \
   GET_LSB_TILE(ATTR, LINE) \
-  WRITE_LONG(dst, src[0] | atex); \
-  dst++; \
-  WRITE_LONG(dst, src[1] | atex); \
-  dst++;
+  WRITE_LONG(dst++, src[0] | atex); \
+  WRITE_LONG(dst++, src[1] | atex);
 #define DRAW_COLUMN_IM2(ATTR, LINE) \
   GET_MSB_TILE_IM2(ATTR, LINE) \
-  WRITE_LONG(dst, src[0] | atex); \
-  dst++; \
-  WRITE_LONG(dst, src[1] | atex); \
-  dst++; \
+  WRITE_LONG(dst++, src[0] | atex); \
+  WRITE_LONG(dst++, src[1] | atex); \
   GET_LSB_TILE_IM2(ATTR, LINE) \
-  WRITE_LONG(dst, src[0] | atex); \
-  dst++; \
-  WRITE_LONG(dst, src[1] | atex); \
-  dst++;
+  WRITE_LONG(dst++, src[0] | atex); \
+  WRITE_LONG(dst++, src[1] | atex);
 #endif
 #else /* NOT ALIGNED */
 #ifdef LSB_FIRST
@@ -274,16 +247,16 @@ INLINE void WRITE_LONG(void *address, uint32 data)
 
 #ifdef LSB_FIRST
 #define DRAW_BG_TILE(SRC_A, SRC_B) \
-  *lb++ = table[ ((SRC_B << 8)   & 0xff00) | ( SRC_A        & 0xff)]; \
-  *lb++ = table[ (SRC_B          & 0xff00) | ( (SRC_A >> 8) & 0xff)]; \
-  *lb++ = table[ ( (SRC_B >> 8)  & 0xff00) | ((SRC_A >> 16) & 0xff)]; \
-  *lb++ = table[ ( (SRC_B >> 16) & 0xff00) | ((SRC_A >> 24) & 0xff)];
+  *lb++ = table[((SRC_B <<  8) & 0xff00) | ( SRC_A        & 0xff)]; \
+  *lb++ = table[( SRC_B        & 0xff00) | ((SRC_A >>  8) & 0xff)]; \
+  *lb++ = table[((SRC_B >>  8) & 0xff00) | ((SRC_A >> 16) & 0xff)]; \
+  *lb++ = table[((SRC_B >> 16) & 0xff00) | ((SRC_A >> 24) & 0xff)];
 #else
 #define DRAW_BG_TILE(SRC_A, SRC_B) \
   *lb++ = table[((SRC_B >> 16) & 0xff00) | ((SRC_A >> 24) & 0xff)]; \
-  *lb++ = table[((SRC_B >> 8) & 0xff00) | ((SRC_A >> 16) & 0xff)]; \
-  *lb++ = table[(SRC_B & 0xff00) | ((SRC_A >> 8) & 0xff)]; \
-  *lb++ = table[((SRC_B << 8) & 0xff00) | (SRC_A & 0xff)];
+  *lb++ = table[((SRC_B >>  8) & 0xff00) | ((SRC_A >> 16) & 0xff)]; \
+  *lb++ = table[( SRC_B        & 0xff00) | ((SRC_A >>  8) & 0xff)]; \
+  *lb++ = table[((SRC_B <<  8) & 0xff00) | ( SRC_A        & 0xff)];
 #endif
 
 #ifdef ALIGN_LONG
@@ -318,7 +291,7 @@ INLINE void WRITE_LONG(void *address, uint32 data)
   SRC_A = READ_LONG((uint32 *)lb); \
   SRC_B = (src[1] | atex); \
   DRAW_BG_TILE(SRC_A, SRC_B)
-#else
+#else //!LSB_FIRST
 #define DRAW_BG_COLUMN(ATTR, LINE, SRC_A, SRC_B) \
   GET_MSB_TILE(ATTR, LINE) \
   SRC_A = READ_LONG((uint32 *)lb); \
@@ -349,7 +322,7 @@ INLINE void WRITE_LONG(void *address, uint32 data)
   SRC_A = READ_LONG((uint32 *)lb); \
   SRC_B = (src[1] | atex); \
   DRAW_BG_TILE(SRC_A, SRC_B)
-#endif
+#endif //LSB_FIRST
 #else /* NOT ALIGNED */
 #ifdef LSB_FIRST
 #define DRAW_BG_COLUMN(ATTR, LINE, SRC_A, SRC_B) \
@@ -578,6 +551,7 @@ static PIXEL_OUT_T pixel_lut_m4[0x40];
 
 /* Background & Sprite line buffers */
 static uint8 linebuf[2][0x200];
+//uint8 linebuf[320 * 2][0x200];
 
 /* Sprite limit flag */
 static uint8 spr_ovr;
@@ -948,41 +922,13 @@ static uint32 make_lut_bgobj_m4(uint32 bx, uint32 sx)
 /*--------------------------------------------------------------------------*/
 /* Pixel layer merging function                                             */
 /*--------------------------------------------------------------------------*/
-
 INLINE void merge(uint8 *srca, uint8 *srcb, uint8 *dst, uint8 *table, int width)
 {
-#ifdef GCWZERO
-  unsigned int width_div_sixteen = width >> 4;
-  do
-  {
-    *dst++ = table[(*srcb++ << 8) | (*srca++)];
-    *dst++ = table[(*srcb++ << 8) | (*srca++)];
-    *dst++ = table[(*srcb++ << 8) | (*srca++)];
-    *dst++ = table[(*srcb++ << 8) | (*srca++)];
-
-    *dst++ = table[(*srcb++ << 8) | (*srca++)];
-    *dst++ = table[(*srcb++ << 8) | (*srca++)];
-    *dst++ = table[(*srcb++ << 8) | (*srca++)];
-    *dst++ = table[(*srcb++ << 8) | (*srca++)];
-
-    *dst++ = table[(*srcb++ << 8) | (*srca++)];
-    *dst++ = table[(*srcb++ << 8) | (*srca++)];
-    *dst++ = table[(*srcb++ << 8) | (*srca++)];
-    *dst++ = table[(*srcb++ << 8) | (*srca++)];
-
-    *dst++ = table[(*srcb++ << 8) | (*srca++)];
-    *dst++ = table[(*srcb++ << 8) | (*srca++)];
-    *dst++ = table[(*srcb++ << 8) | (*srca++)];
-    *dst++ = table[(*srcb++ << 8) | (*srca++)];
-  }
-  while (--width_div_sixteen);
-#else
   do
   {
     *dst++ = table[(*srcb++ << 8) | (*srca++)];
   }
   while (--width);
-#endif
 }
 
 
@@ -2215,7 +2161,7 @@ void render_bg_m5_im2_vs(int line)
   merge(&linebuf[1][0x20], &linebuf[0][0x20], &linebuf[0][0x20], lut[(reg[12] & 0x08) >> 2], bitmap.viewport.w);
 }
 
-#else
+#else //ALT_RENDERER
 
 void render_bg_m5(int line)
 {
@@ -2331,9 +2277,9 @@ void render_bg_m5(int line)
     /* Pattern row index */
     v_line = (line & 7) << 3;
 
-    for(column = start; column < end; column++)
+    for(column = start; column < end;)
     {
-      atbuf = nt[column];
+      atbuf = nt[column++];
       DRAW_COLUMN(atbuf, v_line)
     }
   }
@@ -3417,7 +3363,6 @@ void render_obj_m5_im2(int line)
   /* Sprite list for current line */
   object_info_t *object_info = obj_info[line];
   int count = object_count[line];
-
   /* Draw sprites in front-to-back order */
   while (count--)
   {
@@ -4119,35 +4064,11 @@ void render_reset(void)
   spr_ovr = spr_col = object_count[0] = object_count[1] = 0;
 }
 
-
 /*--------------------------------------------------------------------------*/
 /* Line rendering functions                                                 */
 /*--------------------------------------------------------------------------*/
 void render_line(int line)
 {
-#ifdef GCW0_ALT_BLITTER
-    /* New frame, reset all draw parameters */
-    if(line & 1)
-    {
-      //save previous values to prevent flicker in triple buffering later
-      static int dfl1, dfl2, dfl3 = 0;
-      static int dtl1, dtl2, dtl3 = 0;
-      static int rotbv = 0;
-      if(rotbv == 0) {           dfl1 = draw_from_line_temp; dtl1 = draw_to_line_temp; } else
-      if(rotbv == 1) {           dfl2 = draw_from_line_temp; dtl2 = draw_to_line_temp; } else
-                     {rotbv = 0; dfl3 = draw_from_line_temp; dtl3 = draw_to_line_temp; }
-      rotbv++;
-
-      if(dfl1 <= dfl2 && dfl1 <= dfl3) draw_from_line = dfl1; else
-      if(dfl2 <= dfl1 && dfl2 <= dfl3) draw_from_line = dfl2; else
-      if(dfl3 <= dfl1 && dfl3 <= dfl2) draw_from_line = dfl3;
-      if(dtl1 >= dtl2 && dtl1 >= dtl3) draw_to_line = dtl1; else
-      if(dtl2 >= dtl1 && dtl2 >= dtl3) draw_to_line = dtl2; else
-      if(dtl3 >= dtl1 && dtl3 >= dtl2) draw_to_line = dtl3;
-      draw_from_line_temp = draw_to_line_temp = 0;
-    }
-#endif
-
   /* Check display status */
   if (reg[1] & 0x40)
   {
@@ -4213,13 +4134,13 @@ void render_line(int line)
   remap_line(line);
 }
 
-void blank_line(int line, int offset, int width)
+inline void blank_line(int line, int offset, int width)
 {
   memset(&linebuf[0][0x20 + offset], 0x40, width);
   remap_line(line);
 }
 
-void remap_line(int line)
+inline void remap_line(int line)
 {
   /* Line width */
   int width = bitmap.viewport.w + 2*bitmap.viewport.x;
@@ -4227,21 +4148,21 @@ void remap_line(int line)
   /* Pixel line buffer */
   uint8 *src = &linebuf[0][0x20 - bitmap.viewport.x];
 
-  /* Adjust line offset in framebuffer */
-  line = (line + bitmap.viewport.y) % lines_per_frame;
+   /* Adjust line offset in framebuffer */
+   line = (line + bitmap.viewport.y) % lines_per_frame;
 
-  /* Take care of Game Gear reduced screen when overscan is disabled */
-  if (line < 0) return;
+   /* Take care of Game Gear reduced screen when overscan is disabled */
+   if (line < 0) return;
 
-  /* Adjust for interlaced output */
-  if (interlaced && config.render)
-  {
-    line = (line * 2) + odd_frame;
-  }
+   /* Adjust for interlaced output */
+   if (interlaced && config.render)
+   {
+     line = (line * 2) + odd_frame;
+   }
 
 #if defined(USE_15BPP_RENDERING) || defined(USE_16BPP_RENDERING)
   /* NTSC Filter (only supported for 15 or 16-bit pixels rendering) */
-/*
+
   if (config.ntsc)
   {
     if (reg[12] & 0x01)
@@ -4254,84 +4175,14 @@ void remap_line(int line)
     }
   }
   else
-*/
 #endif
   {
 #ifdef CUSTOM_BLITTER
     CUSTOM_BLITTER(line, width, pixel, src)
 #else
-#ifdef GCW0_ALT_BLITTER //Custom blitter
-      // only figure out min and max y values (quicker)
-      PIXEL_OUT_T *dst = ((PIXEL_OUT_T *)&bitmap.data[(line * bitmap.pitch)]);
-      PIXEL_OUT_T b = 0;
-      unsigned int dtl = 0;
-      if(!do_blit) //we're already blitting
-      {
-//        if(draw_to_line > line) dtl = 1;
-        do
-        {
-          if(dtl)
-            *dst++ = pixel[*src++];
-          else
-          {
-            b = pixel[*src++];
-            if(*dst != b)
-            {
-              *dst++ = b;
-              if(!dtl) dtl = !dtl;
-            }
-            else *dst++;
-          }
-        } while(--width);
-        if(dtl && draw_to_line_temp < line)  draw_to_line_temp = line; //define the last line
-      }
-      else //we might not need to blit...check for changes to the image.
-      {
-        unsigned int db = do_blit;
-//        if(line == draw_from_line) do_blit = db = 1;
-        do
-        {
-          b = pixel[*src++];
-          if(*dst != b)
-          {
-            *dst++ = b;
-            if(db) db = !db;
-          }
-          else *dst++;
-        } while (--width);
-        if(db)
-        {
-          draw_from_line_temp = line ; //define the last line as well, for now they are the same.
-          if(draw_to_line_temp < line) draw_to_line_temp = line;
-          do_blit = 1;
-        }
-      }
-    if(draw_from_line > draw_from_line_temp) draw_from_line = draw_from_line_temp;
-    if(draw_to_line < draw_to_line_temp) draw_from_line = draw_from_line_temp;
-#else
-#ifdef GCWZERO
     /* Convert VDP pixel data to output pixel format */
     PIXEL_OUT_T *dst = ((PIXEL_OUT_T *)&bitmap.data[(line * bitmap.pitch)]);
-
-    // Check if changes are present 
-    int i = 0;
-    for(i = width; i != 0; i--)
-    {
-      if(*dst==pixel[*src]) {*dst++; *src++;}
-      else break;
-    }
-    if(i)
-    {
-      // Changes are present 
-      do_blit = 1; //Signal to blit and flip in main.c
-      for(int j = i; j != 0; j--)
-      {
-        *dst++ = pixel[*src++];
-      }
-    }
-#else
-    /* Convert VDP pixel data to output pixel format */
-    PIXEL_OUT_T *dst = ((PIXEL_OUT_T *)&bitmap.data[(line * bitmap.pitch)]);
+//  uint16 *dst = bitmapline[line];
 
     if (config.lcd)
     {
@@ -4349,8 +4200,6 @@ void remap_line(int line)
       }
       while (--width);
     }
-#endif //gcwzero
-#endif //gcw0_alt_blitter
 #endif
   }
 }

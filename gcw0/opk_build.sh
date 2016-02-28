@@ -2,7 +2,7 @@
 
 # Set debug to 1 if you want a debug build, 0 if you want a release build
 debug=0
-sdl2=1
+sdl2=0
 
 if [ "$sdl2" = "1" ]
 then
