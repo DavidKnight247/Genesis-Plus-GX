@@ -126,7 +126,6 @@ blip_t* blip_new( int size )
 #ifdef BLIP_ASSERT
 	assert( size >= 0 );
 #endif
- 
 	m = (blip_t*) malloc( sizeof *m + (size + buf_extra) * sizeof (buf_t) );
 	if ( m )
 	{

@@ -175,13 +175,10 @@ void pcm_run(unsigned int length)
       }
 
       /* limiter */
-      if(l | r) //silence is faster :)
-      {
-        if      (l < -32768) l = -32768;
-        else if (l >  32767) l =  32767;
-        if      (r < -32768) r = -32768;
-        else if (r >  32767) r =  32767;
-      }
+      if      (l < -32768) l = -32768;
+      else if (l >  32767) l =  32767;
+      if      (r < -32768) r = -32768;
+      else if (r >  32767) r =  32767;
 
       /* check if PCM left output changed */
       if (pcm.out[0] != l)

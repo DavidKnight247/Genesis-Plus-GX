@@ -96,7 +96,7 @@ static SN76489_Context SN76489;
 
 void SN76489_Init(int type)
 {
-  unsigned int i;
+  int i;
 
   for (i=0; i<4; i++)
   {
@@ -118,7 +118,7 @@ void SN76489_Init(int type)
 
 void SN76489_Reset()
 {
-  unsigned int i;
+  int i;
 
   for(i = 0; i <= 3; i++)
   {
@@ -166,7 +166,6 @@ int SN76489_GetContextSize(void)
 INLINE void UpdateToneAmplitude(int i, int time)
 {
   int delta;
-//  unsigned int delta;
 
   /* left output */
   delta = (SN76489.Channel[i][0] * SN76489.ToneFreqPos[i]) - SN76489.ChanOut[i][0];
@@ -189,7 +188,6 @@ INLINE void UpdateToneAmplitude(int i, int time)
 INLINE void UpdateNoiseAmplitude(int time)
 {
   int delta;
-//  unsigned int delta;
 
   /* left output */
   delta = (SN76489.Channel[3][0] * ( SN76489.NoiseShiftRegister & 0x1 )) - SN76489.ChanOut[3][0];
@@ -212,7 +210,6 @@ INLINE void UpdateNoiseAmplitude(int time)
 static void RunTone(int i, int clocks)
 {
   int time;
-//  unsigned int time;
 
   /* Update in case a register changed etc. */
   UpdateToneAmplitude(i, SN76489.clocks);
@@ -235,7 +232,7 @@ static void RunTone(int i, int clocks)
     /* Advance to time of next transition */
     time += SN76489.Registers[i*2] * PSG_MCYCLES_RATIO;
   }
-  
+
   /* Update channel tone counter */
   SN76489.ToneFreqVals[i] = time;
 }
@@ -244,7 +241,6 @@ static void RunTone(int i, int clocks)
 static void RunNoise(int clocks)
 {
   int time;
-//  unsigned int time;
 
   /* Noise channel: match to tone2 if in slave mode */
   int NoiseFreq = SN76489.NoiseFreq;
@@ -295,8 +291,7 @@ static void RunNoise(int clocks)
 
 static void SN76489_RunUntil(unsigned int clocks)
 {
-//  int i;
-  unsigned int i;
+  int i;
 
   /* Run noise first, since it might use current value of third tone frequency counter */
   RunNoise(clocks);
@@ -310,8 +305,7 @@ static void SN76489_RunUntil(unsigned int clocks)
 
 void SN76489_Config(unsigned int clocks, int preAmp, int boostNoise, int stereo)
 {
-//  int i;
-  unsigned int i;
+  int i;
 
   /* cycle-accurate Game Gear stereo */
   if (clocks > SN76489.clocks)
@@ -344,8 +338,7 @@ void SN76489_Config(unsigned int clocks, int preAmp, int boostNoise, int stereo)
 
 void SN76489_Update(unsigned int clocks)
 {
-//  int i;
-  unsigned int i;
+  int i;
 
   if (clocks > SN76489.clocks)
   {

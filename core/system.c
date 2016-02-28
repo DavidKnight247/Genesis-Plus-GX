@@ -50,11 +50,7 @@ uint32 mcycles_vdp;
 uint8 system_hw;
 uint8 system_bios;
 uint32 system_clock;
-#ifdef GCWZERO
-#define SVP_CYCLES 800
-#else
 uint16 SVP_cycles = 800;
-#endif
 
 static uint8 pause_b;
 static EQSTATE eq;
@@ -185,21 +181,15 @@ void audio_reset(void)
 void audio_set_equalizer(void)
 {
   init_3band_state(&eq,config.low_freq,config.high_freq,snd.sample_rate);
-#ifdef GCWZERO
-  eq.lg = (float)(config.lg) / 100.0;
-  eq.mg = (float)(config.mg) / 100.0;
-  eq.hg = (float)(config.hg) / 100.0;
-#else
   eq.lg = (double)(config.lg) / 100.0;
   eq.mg = (double)(config.mg) / 100.0;
   eq.hg = (double)(config.hg) / 100.0;
-#endif
 }
 
 void audio_shutdown(void)
 {
   int i,j;
-  
+
   /* Delete blip buffers */
   for (i=0; i<3; i++)
   {
@@ -230,7 +220,7 @@ int audio_update(int16 *buffer)
 #endif
 
   /* resample FM & PSG mixed stream to output buffer */
-  if(system_hw != SYSTEM_MCD)
+  if (system_hw != SYSTEM_MCD)
   {
 #ifdef LSB_FIRST
     blip_read_samples(snd.blips[0][0], buffer, size);
@@ -535,11 +525,7 @@ void system_frame_gen(int do_skip)
   /* run SVP chip */
   if (svp)
   {
-#ifdef GCWZERO
-    ssp1601_run(SVP_CYCLES);
-#else
     ssp1601_run(SVP_cycles);
-#endif
   }
 
   /* update VDP cycle count */
@@ -553,9 +539,6 @@ void system_frame_gen(int do_skip)
   end = bitmap.viewport.h + bitmap.viewport.y;
 
   /* Vertical Blanking */
-#ifdef GCWZERO
-  int lines_per_frame_adjusted = lines_per_frame - 1;
-#endif
   do
   {
     /* update VCounter */
@@ -601,32 +584,22 @@ void system_frame_gen(int do_skip)
     /* run SVP chip */
     if (svp)
     {
-#ifdef GCWZERO
-      ssp1601_run(SVP_CYCLES);
-#else
       ssp1601_run(SVP_cycles);
-#endif
     }
 
     /* update VDP cycle count */
     mcycles_vdp += MCYCLES_PER_LINE;
   }
-#ifdef GCWZERO //small optimisation?
-  while (++line != lines_per_frame_adjusted);
-#else
   while (++line < (lines_per_frame - 1));
-#endif
 
   /* update VCounter */
   v_counter = line;
 
-#ifndef GCWZERO
   /* last line of overscan */
   if (bitmap.viewport.y)
   {
     blank_line(line, -bitmap.viewport.x, bitmap.viewport.w + 2*bitmap.viewport.x);
   }
-#endif
 
   /* reload H-Int counter */
   h_counter = reg[10];
@@ -663,11 +636,7 @@ void system_frame_gen(int do_skip)
   /* run SVP chip */
   if (svp)
   {
-#ifdef GCWZERO
-    ssp1601_run(SVP_CYCLES);
-#else
     ssp1601_run(SVP_cycles);
-#endif
   }
 
   /* update VDP cycle count */
@@ -688,23 +657,11 @@ void system_frame_gen(int do_skip)
       vdp_dma_update(mcycles_vdp);
     }
 
-    /* render scanline */
     if (!do_skip)
     {
+      /* render scanline */
       render_line(line);
     }
-
-#ifdef GCWZERO
-    /* update 6-Buttons & Lightguns */
-    input_refresh();
-
-    /* H-Int counter */
-    if (!h_counter--)
-    {
-      /* reload H-Int counter */
-        h_counter++;
-        h_counter = reg[10];
-#else
     /* update 6-Buttons & Lightguns */
     input_refresh();
 
@@ -713,7 +670,6 @@ void system_frame_gen(int do_skip)
     {
       /* reload H-Int counter */
         h_counter = reg[10];
-#endif
 
       /* Horizontal Interrupt is pending */
       hint_pending = 0x10;
@@ -723,13 +679,11 @@ void system_frame_gen(int do_skip)
         m68k_update_irq(4);
       }
     }
-#ifndef GCWZERO
     else
     {
       /* decrement H-Int counter */
       h_counter--;
     }
-#endif
 
     /* run 68k & Z80 until end of line */
     m68k_run(mcycles_vdp + MCYCLES_PER_LINE);
@@ -745,21 +699,13 @@ void system_frame_gen(int do_skip)
     /* run SVP chip */
     if (svp)
     {
-#ifdef GCWZERO
-      ssp1601_run(SVP_CYCLES);
-#else
       ssp1601_run(SVP_cycles);
-#endif
     }
 
     /* update VDP cycle count */
     mcycles_vdp += MCYCLES_PER_LINE;
   }
-#ifdef GCWZERO
-  while (++line != bitmap.viewport.h);
-#else
   while (++line < bitmap.viewport.h);
-#endif
   /* check viewport changes */
   if (bitmap.viewport.w != bitmap.viewport.ow)
   {
@@ -954,9 +900,6 @@ void system_frame_scd(int do_skip)
   end = bitmap.viewport.h + bitmap.viewport.y;
 
   /* Vertical Blanking */
-#ifdef GCWZERO
-  int lines_per_frame_adjusted = lines_per_frame-1;
-#endif
   do
   {
     /* update VCounter */
@@ -1004,11 +947,7 @@ void system_frame_scd(int do_skip)
     /* update VDP cycle count */
     mcycles_vdp += MCYCLES_PER_LINE;
   }
-#ifdef GCWZERO
-  while (++line != (lines_per_frame_adjusted));
-#else
   while (++line < (lines_per_frame - 1));
-#endif
 
   /* update VCounter */
   v_counter = line;
@@ -1064,23 +1003,21 @@ void system_frame_scd(int do_skip)
   {
     /* update VCounter */
     v_counter = line;
-      /* run VDP DMA */
-      if (dma_length)
-      {
-        vdp_dma_update(mcycles_vdp);
-      }
 
-    /* render scanline */
+    /* run VDP DMA */
+    if (dma_length)
+    {
+      vdp_dma_update(mcycles_vdp);
+    }
+
     if (!do_skip)
     {
-
+      /* render scanline */
       render_line(line);
     }
 
-#ifndef GCWZERO
     /* update 6-Buttons & Lightguns */
     input_refresh();
-#endif
 
     /* H-Int counter */
     if (!h_counter--)
@@ -1113,11 +1050,7 @@ void system_frame_scd(int do_skip)
     /* update VDP cycle count */
     mcycles_vdp += MCYCLES_PER_LINE;
   }
-#ifdef GCWZERO
-  while (++line != bitmap.viewport.h);
-#else
   while (++line < bitmap.viewport.h);
-#endif
 
   /* check viewport changes */
   if (bitmap.viewport.w != bitmap.viewport.ow)
@@ -1284,6 +1217,7 @@ void system_frame_sms(int do_skip)
     {
       vdp_dma_update(0);
     }
+
   }
 
   /* update 6-Buttons & Lightguns */
@@ -1341,9 +1275,6 @@ void system_frame_sms(int do_skip)
   end   = bitmap.viewport.h + bitmap.viewport.y;
 
   /* Vertical Blanking */
-#ifdef GCWZERO
-int lines_per_frame_adjusted = lines_per_frame-1;
-#endif
   do
   {
     /* update VCounter */
@@ -1372,11 +1303,7 @@ int lines_per_frame_adjusted = lines_per_frame-1;
     /* update VDP cycle count */
     mcycles_vdp += MCYCLES_PER_LINE;
   }
-#ifdef GCWZERO
-  while (++line < (lines_per_frame_adjusted));
-#else
   while (++line < (lines_per_frame - 1));
-#endif
 
   /* update VCounter */
   v_counter = line;
