@@ -2,7 +2,7 @@ Genesis Plus GX port for the GCW0 Handheld Console
 
 Initial GCW0 port by:
 Shin-NiL & David Knight
-Continued maintainance by:
+Continued maintainance and improvements by:
 David Knight
 Testing:
 Care16la20
@@ -12,7 +12,7 @@ https://bitbucket.org/shin_nil/genesis-plus-gx-gcw0/
 
 Genesis Plus GX is an open-source emulator focused on accuracy and portability, now emulating SG-1000, Master System, Game Gear, Mega Drive / Genesis and Sega / Mega CD hardware. Initially ported and designed to be running on Gamecube / Wii consoles through libogc / devkitPPC, it is also available for many other platforms through various frontends.
 
-The source code is based on Genesis Plus 1.3, originally developped by Charles MacDonald (http://cgfm2.emuviews.com). It has been heavily modified, with respect to initial goals and design, in order to improve accuracy of emulation, implementing new features and adding support for extra peripherals, cartridge & systems hardware.
+The source code is based on Genesis Plus 1.3, originally developed by Charles MacDonald (http://cgfm2.emuviews.com). It has been heavily modified, with respect to initial goals and design, in order to improve accuracy of emulation, implementing new features and adding support for extra peripherals, cartridge & systems hardware primarily by ekeeke.
 
 The result is that Genesis Plus GX is now more a continuation of the original project than a simple port, providing very accurate emulation and 100% compatibility with Genesis / Mega Drive, Sega / Mega CD, Master System, Game Gear & SG-1000 software (including all unlicensed or pirate known dumps), also emulating backwards compatibility modes when available.
 
@@ -20,7 +20,7 @@ Multi-platform sourcecode is available through SVN and GIT so that other Genesis
 
 INSTRUCTIONS
 
-For SG-1000, Game Gear (GG), Master System (SMS) and Mega Drive (Genesis, MD) you don't need to do anything. Just locate the rom file you wish to use (zip files are supported) and run it through the gMenu.
+For SG-1000, Game Gear (GG), Master System (SMS) and Mega Drive (Genesis, MD) locate the rom file you wish to use (zip files are supported) and run it through the gMenu.
 
 For Sega CD games you will need the correct bios files. These are not included with this distribution for copyright reasons. Once you have located the correct bios you will need to rename them according to the correct region:
 "/usr/local/home/.genplus/bios/bios_CD_U.bin"
@@ -77,7 +77,7 @@ Stop lag (On)
 This will disguise sound lag for taxing Mega CD titles and Virtua Racing by filling in the gaps with the previous sound frame. This can be very effective for repetitive sounds but can also cause an echoing effect.
 
 Optimisations (Off)
-Set to "Off", "On: Balanced" or "On: Performance". This will enable a number of optimisations for Mega CD games, Pier Solar and Virtua Racing. This setting has no effect on other games which should run full speed anyway.
+Set to "Off" or "On". This will enable a number of optimisations, particularly for Mega CD games, Pier Solar and Virtua Racing.
 It will improve emulation speed at the expense of sound quality and framerate. 
 
 Resume on Save/Load (On)
@@ -170,4 +170,4 @@ Ultima IV
 Vigilante
 Wonder Boy III: The Dragon's Trap
 
-2016/01/01
+2016/02/29
