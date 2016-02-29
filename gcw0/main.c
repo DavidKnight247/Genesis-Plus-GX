@@ -22,6 +22,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <errno.h>
+#include <time.h>
 #define CHUNKSIZE 1024
 #define PRINTSETTING(px, py, pw, ph, setting) \
 { \
@@ -146,14 +147,14 @@ static void sdl_sound_callback(void *userdata, Uint8 *stream, int len)
 
     if (ces < len)
     {
-        if(config.optimisations)
+        if(config.optimisations && !goto_menu)
         {
             if(!frameskip) frameskip++;
             memcpy(stream, sdl_sound.buffer, len);
             memcpy(sdl_sound.buffer, sdl_sound.current_pos - ces, ces);
             sdl_sound.current_pos = sdl_sound.buffer + ces;
         }
-        else if(config.skip_prevention)
+        else if(config.skip_prevention && !goto_menu)
         {
             memcpy(stream, sdl_sound.buffer, len);
             memcpy(sdl_sound.buffer, sdl_sound.current_pos - ces, ces);
@@ -885,6 +886,7 @@ static void gcw0menu(void)
 
     enum {MAINMENU = 0, GRAPHICS_OPTIONS = 10, REMAP_OPTIONS = 20, SAVE_STATE = 30, LOAD_STATE = 40, MISC_OPTIONS = 50, AUTOFIRE_OPTIONS = 60, SOUND_OPTIONS = 70};
     static int menustate = MAINMENU;
+    static int menu_fade = 0;
     static int renderer;
     renderer = config.renderer;
 
@@ -972,13 +974,27 @@ static void gcw0menu(void)
         char remap_text[256];
         char load_state_screenshot[256];
         int savestate = 0;
+        time_t current_time;
+        char* c_time_string;
+
+        /* Obtain current time. */
+        current_time = time(NULL);
+
+        /* Convert to local time format. */
+        c_time_string = ctime(&current_time);
 
         /* Initialise surfaces */
         SDL_Surface *textSurface;
+        SDL_Surface *textSurfaceTime;
         SDL_Surface *textSurfaceVersion;
         SDL_Surface *MenuBackground;
 
         /* Blit the background image */
+#ifndef SDL2
+        /* Fade background in slowly */
+        if(menu_fade < 255) menu_fade++;
+        SDL_SetAlpha(bgSurface, SDL_SRCALPHA, menu_fade);
+#endif
         SDL_BlitSurface(bgSurface, NULL, menuSurface, NULL);
 
         /* Fill menu box */
@@ -1014,22 +1030,33 @@ static void gcw0menu(void)
         destination.h = 50;
         textSurface = TTF_RenderText_Solid(ttffont, "Genesis Plus GX", text_color);
 
-        /* Show version */
+        /* Show time */
         SDL_Rect destination2;
-        destination2.x = 0;
+        destination2.x = 320 - (19 * 6);
         destination2.y = 0;
         destination2.w = 100;
         destination2.h = 50;
+        textSurfaceTime = TTF_RenderText_Solid(ttffont, c_time_string, text_color_dull);
+//    (void) printf("Current time is %s", c_time_string);
+
+        /* Show version */
+        SDL_Rect destination3;
+        destination3.x = 0;
+        destination3.y = 0;
+        destination3.w = 100;
+        destination3.h = 50;
         textSurfaceVersion = TTF_RenderText_Solid(ttffont, "Build date " __DATE__, text_color_dull);
 
         /* Blit background and title */
         SDL_BlitSurface(MenuBackground,     NULL, menuSurface, &rect);
         SDL_BlitSurface(textSurface,        NULL, menuSurface, &destination);
-        SDL_BlitSurface(textSurfaceVersion, NULL, menuSurface, &destination2);
+        SDL_BlitSurface(textSurfaceTime,    NULL, menuSurface, &destination2);
+        SDL_BlitSurface(textSurfaceVersion, NULL, menuSurface, &destination3);
 
         /* Free surfaces */
         SDL_FreeSurface(MenuBackground);
         SDL_FreeSurface(textSurface);
+        SDL_FreeSurface(textSurfaceTime);
         SDL_FreeSurface(textSurfaceVersion);
 
         switch(menustate)
@@ -1496,7 +1523,7 @@ static void gcw0menu(void)
                 case 10: //Back to main menu
                     menustate = MAINMENU; selectedoption = 4; break;
                 case 11: //Renderer
-                    if (config.renderer >= sizeof(config.renderer)/sizeof(config.renderer[0])) config.renderer = 0;
+                    if (config.renderer >= sizeof(gcw0menu_renderer) / sizeof(gcw0menu_renderer[0]) - 1) config.renderer = 0;
                     else config.renderer ++;
                     config_save(); break;
                 case 12: //Scaling
@@ -1553,7 +1580,7 @@ static void gcw0menu(void)
                 case 50: //return to main menu
                     menustate = MAINMENU; selectedoption = 7; break;
                 case 51: //Optimisations
-                    if(config.optimisations >= sizeof(config.optimisations)/sizeof(uint8)) config.optimisations = 0;
+                    if(config.optimisations >= sizeof(gcw0menu_optimisations) / sizeof(gcw0menu_optimisations[0]) - 1) config.optimisations = 0;
                     else config.optimisations ++;
                     config_save(); break;
                 case 52: //toggle auto resume when save/loading
@@ -1561,19 +1588,19 @@ static void gcw0menu(void)
                 case 53: //toggle A-Stick
                     config.a_stick = !config.a_stick; config_save(); break;
                 case 54: //toggle A-Stick deadzone
-                    if(config.deadzone >= sizeof(config.deadzone)/sizeof(config.deadzone[0])) config.deadzone = 0;
+                    if(config.deadzone >= sizeof(gcw0menu_deadzonelist) / sizeof(gcw0menu_deadzonelist[0]) - 1) config.deadzone = 0;
                     else config.deadzone++;
                     config_save(); break;
                 case 55: //toggle or change lock-on device
-                    if(config.lock_on >= sizeof(config.lock_on)/sizeof(config.lock_on[0])) config.lock_on = 0;
+                    if(config.lock_on >= sizeof(lock_on_desc) / sizeof(lock_on_desc[0]) - 1) config.lock_on = 0;
                     else config.lock_on++;
                     config_save(); break;
                 case 56: //Lightgun speed
-                    if(config.lightgun_speed >= sizeof(config.lightgun_speed)/sizeof(config.lightgun_speed[0])) config.lightgun_speed = 1;
+                    if(config.lightgun_speed >= sizeof(gcw0menu_numericlist) / sizeof(gcw0menu_numericlist[0]) - 1) config.lightgun_speed = 1;
                     else config.lightgun_speed++;
                     config_save(); break;
                 case 57: //Change lightgun cursor
-                    if(config.cursor >= sizeof(config.cursor)/sizeof(config.cursor[0])) config.cursor = 0;
+                    if(config.cursor >= sizeof(cursor) / sizeof(cursor[0]) - 1) config.cursor = 0;
                     else config.cursor++;
                     config_save(); break;
                 case 60: //return to main menu
@@ -1605,6 +1632,7 @@ static void gcw0menu(void)
         }
     }//menu loop
 
+    menu_fade = 0;
     TTF_CloseFont (ttffont);
     SDL_FreeSurface(menuSurface);
     SDL_FreeSurface(bgSurface);
@@ -2074,7 +2102,7 @@ int sdl_input_update(void)
         }
 
         /* Define deadzone of analogue joystick */
-        unsigned int deadzone = config.deadzone * 5000;
+        int deadzone = config.deadzone * 5000;
 
         /* Control lightgun with A-stick if activated */
         if (show_lightgun)
