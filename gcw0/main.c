@@ -1496,7 +1496,7 @@ static void gcw0menu(void)
                 case 10: //Back to main menu
                     menustate = MAINMENU; selectedoption = 4; break;
                 case 11: //Renderer
-                    if (config.renderer >= sizeof(config.renderer)/sizeof(uint8)) config.renderer = 0;
+                    if (config.renderer >= sizeof(config.renderer)/sizeof(config.renderer[0])) config.renderer = 0;
                     else config.renderer ++;
                     config_save(); break;
                 case 12: //Scaling
@@ -1561,19 +1561,19 @@ static void gcw0menu(void)
                 case 53: //toggle A-Stick
                     config.a_stick = !config.a_stick; config_save(); break;
                 case 54: //toggle A-Stick deadzone
-                    if(config.deadzone >= sizeof(config.deadzone)/sizeof(uint8)) config.deadzone = 0;
+                    if(config.deadzone >= sizeof(config.deadzone)/sizeof(config.deadzone[0])) config.deadzone = 0;
                     else config.deadzone++;
                     config_save(); break;
                 case 55: //toggle or change lock-on device
-                    if(config.lock_on >= sizeof(config.lock_on)/sizeof(uint8)) config.lock_on = 0;
+                    if(config.lock_on >= sizeof(config.lock_on)/sizeof(config.lock_on[0])) config.lock_on = 0;
                     else config.lock_on++;
                     config_save(); break;
                 case 56: //Lightgun speed
-                    if(config.lightgun_speed >= sizeof(config.lightgun_speed)/sizeof(uint8)) config.lightgun_speed = 1;
+                    if(config.lightgun_speed >= sizeof(config.lightgun_speed)/sizeof(config.lightgun_speed[0])) config.lightgun_speed = 1;
                     else config.lightgun_speed++;
                     config_save(); break;
                 case 57: //Change lightgun cursor
-                    if(config.cursor >= sizeof(config.cursor)/sizeof(uint8)) config.cursor = 0;
+                    if(config.cursor >= sizeof(config.cursor)/sizeof(config.cursor[0])) config.cursor = 0;
                     else config.cursor++;
                     config_save(); break;
                 case 60: //return to main menu
