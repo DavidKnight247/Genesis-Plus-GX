@@ -15,6 +15,7 @@
 #include <SDL_ttf.h>
 #ifndef DINGOO
 #include <SDL_image.h>
+#include <SDL_rotozoom.h>
 #endif
 #include <stdio.h>
 #include <stdlib.h>
@@ -878,7 +879,6 @@ void gcw0_loadstate(int slot)
     }
 }
 
-#ifdef GCWZERO
 static void gcw0menu(void)
 {
     SDL_PauseAudio(1);
@@ -888,6 +888,10 @@ static void gcw0menu(void)
     static int menustate = MAINMENU;
     static int menu_fade = 0;
     static int renderer;
+    int bgScreenshotW = sdl_video.surf_screen->w;
+    int bgScreenshotH = sdl_video.surf_screen->h;
+    double scaleX = (double)320.0 / (double)bgScreenshotW;
+    double scaleY = (double)240.0 / (double)bgScreenshotH;
     renderer = config.renderer;
 
     /* Menu text */
@@ -928,6 +932,28 @@ static void gcw0menu(void)
 
     /* Blank screen */
     SDL_FillRect(sdl_video.surf_screen, 0, 0);
+
+    /* Show saved BMP as background */
+    char bgScreenshotName[256];
+    sprintf(bgScreenshotName,"%s/%s.", get_save_directory(), rom_filename);
+
+    SDL_Surface* bgScreenshotTemp;
+    SDL_Surface* bgScreenshot;
+    SDL_Surface* bgScreenshotZoomed;
+
+    bgScreenshotTemp = SDL_LoadBMP( bgScreenshotName );
+    bgScreenshot = SDL_DisplayFormat( bgScreenshotTemp );
+    bgScreenshotZoomed = SDL_DisplayFormat(zoomSurface(bgScreenshot, scaleX, scaleY, 1));
+
+    SDL_FreeSurface( bgScreenshotTemp );
+    SDL_FreeSurface( bgScreenshot );
+
+    SDL_Rect bgScreenshotRect;
+    bgScreenshotRect.x = (320 - bgScreenshotZoomed->w) / 2;
+    bgScreenshotRect.y = (240 - bgScreenshotZoomed->h) / 2;
+    bgScreenshotRect.w = bgScreenshotZoomed->w;
+    bgScreenshotRect.h = bgScreenshotZoomed->h;
+
 
     /* Setup fonts */
     TTF_Init();
@@ -995,6 +1021,7 @@ static void gcw0menu(void)
         if(menu_fade < 255) menu_fade++;
         SDL_SetAlpha(bgSurface, SDL_SRCALPHA, menu_fade);
 #endif
+        if(menu_fade < 255) SDL_BlitSurface(bgScreenshotZoomed, NULL, menuSurface, &bgScreenshotRect);
         SDL_BlitSurface(bgSurface, NULL, menuSurface, NULL);
 
         /* Fill menu box */
@@ -1019,6 +1046,9 @@ static void gcw0menu(void)
 #ifdef SDL2
 //TODO  skip this to allow compile for now
 #else
+if(menu_fade<205)
+        SDL_SetAlpha(MenuBackground, SDL_SRCALPHA, 255 - menu_fade);
+else
         SDL_SetAlpha(MenuBackground, SDL_SRCALPHA, 50);
 #endif
 
@@ -1636,6 +1666,7 @@ static void gcw0menu(void)
     TTF_CloseFont (ttffont);
     SDL_FreeSurface(menuSurface);
     SDL_FreeSurface(bgSurface);
+    SDL_FreeSurface(bgScreenshotZoomed);
     SDL_PauseAudio(!config.use_sound);
 
     if (config.gcw0_fullscreen)
@@ -1718,7 +1749,6 @@ static void gcw0menu(void)
         while(--post);
     }
 }
-#endif
 
 int sdl_input_update(void)
 {

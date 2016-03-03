@@ -39,6 +39,16 @@ ifeq ($(DEBUG),1)
 else
 	### RELEASE ###
 	CFLAGS    = `$(SDLCONFIG) --cflags` -Ofast -mmxu -fomit-frame-pointer -Wall -Winline -ansi -std=c11 \
+			-ffunction-sections \
+			-finline-functions \
+			-funwind-tables \
+			-fmessage-length=0 \
+			-fno-inline-functions-called-once \
+			-fgcse-after-reload \
+			-frerun-cse-after-loop \
+			-frename-registers \
+			-no-canonical-prefixes \
+			-funswitch-loops \
 			-march=mips32r2 \
 			-mtune=mips32r2 \
 			-funroll-loops \
@@ -65,18 +75,17 @@ else
 			--param inline-unit-growth=200 \
 			--param max-reload-search-insns=200 \
 			--param max-cselib-memory-locations=1000
-			# -falign-loops=32 -falign-jumps=32 -falign-functions=32 -falign-labels=32
-			#-finline-limit=1000
 endif
 
 SRCDIR    = ../core
 INCLUDES  =	-I/opt/gcw0-toolchain/usr/mipsel-gcw0-linux-uclibc/sysroot/usr/include/ \
+		-I/opt/gcw0-toolchain/usr/mipsel-gcw0-linux-uclibc/sysroot/usr/include/SDL/ \
 		-I$(SRCDIR) -I$(SRCDIR)/z80 -I$(SRCDIR)/m68k \
 		-I$(SRCDIR)/sound -I$(SRCDIR)/input_hw \
 		-I$(SRCDIR)/cart_hw -I$(SRCDIR)/cart_hw/svp \
 		-I$(SRCDIR)/cd_hw -I$(SRCDIR)/ntsc \
 		-I$(SRCDIR)/../gcw0 
-LIBS      = `$(SDLCONFIG) --libs` -lz -lm -lSDL_ttf -lSDL_image -lvorbisfile
+LIBS      = `$(SDLCONFIG) --libs` -lz -lm -lSDL_ttf -lSDL_image -lvorbisfile -lSDL_rotozoom
 OBJDIR    = ./build_gcw0
 OBJECTS	  =     $(OBJDIR)/z80.o	
 OBJECTS	 +=    	$(OBJDIR)/m68kcpu.o \
@@ -151,7 +160,7 @@ OBJECTS	+=	$(OBJDIR)/main.o	\
 all: $(NAME)
 
 $(NAME): $(OBJDIR) $(OBJECTS)
-		$(CC) `$(SDLCONFIG) --libs` -lz -lm -lSDL_ttf -lSDL_image -lvorbisfile $(OBJECTS)  -o $@
+		$(CC) `$(SDLCONFIG) --libs` -lz -lm -lSDL_ttf -lSDL_image -lSDL_gfx -lvorbisfile $(OBJECTS)  -o $@
 #		$(CC) $(LDFLAGS) $(LIBS) $(OBJECTS)  -o $@
 
 $(OBJDIR) :
