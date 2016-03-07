@@ -25,14 +25,14 @@
 #include <errno.h>
 #include <time.h>
 #define CHUNKSIZE 1024
-#define PRINTSETTING(px, py, pw, ph, setting) \
+#define PRINTSETTING(px, py, setting) \
 { \
-    destination.x = px; \
-    destination.y = py; \
-    destination.w = pw; \
-    destination.h = ph; \
     textSurface = TTF_RenderText_Solid(ttffont, setting, selected_text_color); \
-    SDL_BlitSurface(textSurface, NULL, menuSurface, &destination); \
+    drect.x = px - textSurface->w; \
+    drect.y = py; \
+    drect.w = textSurface->w; \
+    drect.h = textSurface->h; \
+    SDL_BlitSurface(textSurface, NULL, menuSurface, &drect); \
     SDL_FreeSurface(textSurface); \
 }
 #define SOUND_FREQUENCY 44100
@@ -403,7 +403,7 @@ static void viewport_size_changed(void)
             sdl_video.srect.h = VIDEO_HEIGHT;
         }
 
-        /* destination bitmap */
+        /* Destination bitmap */
         sdl_video.drect.w = sdl_video.srect.w;
         sdl_video.drect.h = sdl_video.srect.h;
         if (config.gcw0_fullscreen) sdl_video.drect.x = 0;
@@ -541,7 +541,6 @@ static void sdl_video_update()
 
     if (!frameskip || skipval )
     {
-      //Custom Blitter, see core/vdp_render.c
       if(frame_progress == FRAME_GEN) //at least one pixel has changed so we need to blit and flip.
       {
         {
@@ -558,8 +557,7 @@ static void sdl_video_update()
       }
     }
 #endif //!SDL2
-#ifdef GCWZERO
-  //Add scanlines to Game Gear games if requested
+    /* Add scanlines to Game Gear games if requested */
     if ( (system_hw == SYSTEM_GG) && config.gg_scanlines)
     {
         SDL_Surface *scanlinesSurface;
@@ -569,7 +567,7 @@ static void sdl_video_update()
     }
     if (show_lightgun)
     {
-      //Remove previous cursor from black bars
+        /* Remove previous cursor from black bars */
         if (config.gcw0_fullscreen)
         {
             if (config.smsmaskleftbar && system_hw == SYSTEM_SMS2)
@@ -599,7 +597,7 @@ static void sdl_video_update()
         srect.y = 0;
         srect.w = srect.h = 15;
 
-        //only show cursor if movement occurred within 3 seconds.
+        /* Only show cursor if movement occurred within 3 seconds */
         time_t current_time2;
         current_time2 = time(NULL);
 
@@ -620,7 +618,6 @@ static void sdl_video_update()
         if (lightgun_af == 20) lightgun_af = 0;
         SDL_FreeSurface(lightgunSurface);
     } //show_lightgun
-#endif
 
     sdl_flip_screen();
 
@@ -882,16 +879,14 @@ void gcw0_loadstate(int slot)
 static void gcw0menu(void)
 {
     SDL_PauseAudio(1);
-    SDL_Delay(60); //pause to allow time for vsync
 
     enum {MAINMENU = 0, GRAPHICS_OPTIONS = 10, REMAP_OPTIONS = 20, SAVE_STATE = 30, LOAD_STATE = 40, MISC_OPTIONS = 50, AUTOFIRE_OPTIONS = 60, SOUND_OPTIONS = 70};
     static int menustate = MAINMENU;
     static int menu_fade = 0;
+    static int start_menu = 0;
     static int renderer;
-    int bgScreenshotW = sdl_video.surf_screen->w;
-    int bgScreenshotH = sdl_video.surf_screen->h;
-    double scaleX = (double)320.0 / (double)bgScreenshotW;
-    double scaleY = (double)240.0 / (double)bgScreenshotH;
+    SDL_Rect srect;
+    SDL_Rect drect;
     renderer = config.renderer;
 
     /* Menu text */
@@ -899,61 +894,16 @@ static void gcw0menu(void)
     const char *gcw0menu_autofirelist[7]=  { "Return to main menu", "Toggle A", "Toggle B", "Toggle C", "Toggle X", "Toggle Y", "Toggle Z" };
     const char *gcw0menu_gfxlist[5]=       { "Return to main menu", "Renderer", "Scaling", "Keep aspect ratio", "Scanlines (GG)" };
     const char *gcw0menu_sndlist[4]=       { "Return to main menu", "Sound", "FM sound (SMS)", "Stop lag" };
-    const char *gcw0menu_numericlist[5]=   { " 0", " 1", " 2", " 3", " 4" };
-    const char *gcw0menu_optimisations[2]= { " Off", " On" };
-    const char *gcw0menu_renderer[3]=      { " HW Triple Buf", " HW Double Buf", " Software" };
-    const char *gcw0menu_onofflist[2]=     { " Off", " On" };
+    const char *gcw0menu_numericlist[5]=   { "0", "1", "2", "3", "4" };
+    const char *gcw0menu_optimisations[2]= { "Off", "On" };
+    const char *gcw0menu_renderer[3]=      { "HW Triple Buf", "HW Double Buf", "Software" };
+    const char *gcw0menu_onofflist[2]=     { "Off", "On" };
     const char *gcw0menu_deadzonelist[7]=  { " 0", " 5,000", " 10,000", " 15,000", " 20,000", " 25,000", " 30,000" };
     const char *gcw0menu_remapoptions[9]=  { "Return to main menu", "A", "B", "C", "X", "Y", "Z", "Start", "Mode" };
     const char *gcw0menu_savestate[10]=    { "Back to main menu", "Save state 1 (Quicksave)", "Save state 2", "Save state 3", "Save state 4", "Save state 5", "Save state 6", "Save state 7", "Save state 8", "Save state 9" };
     const char *gcw0menu_loadstate[10]=    { "Back to main menu", "Load state 1 (Quickload)", "Load state 2", "Load state 3", "Load state 4", "Load state 5", "Load state 6", "Load state 7", "Load state 8", "Load state 9" };
     const char *gcw0menu_misc[8]=          { "Back to main menu", "Optimisations (MCD/VR)", "Resume on Save/Load", "A-stick", "A-stick deadzone", "Lock-on(MD)", "Lightgun speed", "Lightgun Cursor" };
-    const char *lock_on_desc[4]=           { "            Off  ", "       Game Genie", "    Action Replay", " Sonic & Knuckles" };
-
-    bitmap.viewport.changed = 1; //change screen res if required
-
-    /* Set up surfaces */
-    SDL_Surface *tempbgSurface = NULL;
-    SDL_Surface *bgSurface     = NULL;
-    SDL_Surface *menuSurface   = NULL;
-    menuSurface = SDL_CreateRGBSurface(SDL_SWSURFACE, 320, 240, 32, 0, 0, 0, 0);
-
-    /* Display menu */
-    /* Change video mode */
-#ifndef SDL2
-#ifdef DINGOO
-    sdl_video.surf_screen  = SDL_SetVideoMode(320,240, 32, SDL_SWSURFACE                );
-#else
-    if      (config.renderer == 0) sdl_video.surf_screen  = SDL_SetVideoMode(320,240, 32, SDL_HWSURFACE | SDL_TRIPLEBUF);
-    else if (config.renderer == 1) sdl_video.surf_screen  = SDL_SetVideoMode(320,240, 32, SDL_HWSURFACE | SDL_DOUBLEBUF);
-    else if (config.renderer == 2) sdl_video.surf_screen  = SDL_SetVideoMode(320,240, 32, SDL_SWSURFACE                );
-#endif //DINGOO
-#endif //!SDL2
-
-    /* Blank screen */
-    SDL_FillRect(sdl_video.surf_screen, 0, 0);
-
-    /* Show saved BMP as background */
-    char bgScreenshotName[256];
-    sprintf(bgScreenshotName,"%s/%s.", get_save_directory(), rom_filename);
-
-    SDL_Surface* bgScreenshotTemp;
-    SDL_Surface* bgScreenshot;
-    SDL_Surface* bgScreenshotZoomed;
-
-    bgScreenshotTemp = SDL_LoadBMP( bgScreenshotName );
-    bgScreenshot = SDL_DisplayFormat( bgScreenshotTemp );
-    bgScreenshotZoomed = SDL_DisplayFormat(zoomSurface(bgScreenshot, scaleX, scaleY, 1));
-
-    SDL_FreeSurface( bgScreenshotTemp );
-    SDL_FreeSurface( bgScreenshot );
-
-    SDL_Rect bgScreenshotRect;
-    bgScreenshotRect.x = (320 - bgScreenshotZoomed->w) / 2;
-    bgScreenshotRect.y = (240 - bgScreenshotZoomed->h) / 2;
-    bgScreenshotRect.w = bgScreenshotZoomed->w;
-    bgScreenshotRect.h = bgScreenshotZoomed->h;
-
+    const char *lock_on_desc[4]=           { "Off", "Game Genie", "Action Replay", " Sonic&Knuckles" };
 
     /* Setup fonts */
     TTF_Init();
@@ -963,35 +913,40 @@ static void gcw0menu(void)
     SDL_Color text_color = {180, 180, 180};
     SDL_Color selected_text_color = {23, 86, 155}; //selected colour = Sega blue ;)
 
+    /* Set up surfaces */
+    SDL_Surface *gameSurface   = SDL_CreateRGBSurface(SDL_SWSURFACE, sdl_video.surf_screen->w, sdl_video.surf_screen->h, BPP, 0, 0, 0, 0);
+    SDL_Surface *menuSurface   = SDL_CreateRGBSurface(SDL_SWSURFACE, sdl_video.surf_screen->w, sdl_video.surf_screen->h, BPP, 0, 0, 0, 0);
+    SDL_Surface *bgSurface     = NULL;
+
+    /* Preserve last frame of emulation */
+    SDL_BlitSurface(sdl_video.surf_bitmap, &sdl_video.srect, gameSurface, &sdl_video.drect);
+
+    /* Blank screen */
+    SDL_FillRect(sdl_video.surf_screen, 0, 0);
+
     /* Show background hardware image */
     switch(system_hw)
     {
     case SYSTEM_PICO:
-        tempbgSurface = IMG_Load( "./PICO.png" ); break;
+        bgSurface = IMG_Load( "./PICO.png" ); break;
     case SYSTEM_SG: //SG-1000 I&II
     case SYSTEM_SGII:
-        tempbgSurface = IMG_Load( "./SG1000.png" ); break;
+        bgSurface = IMG_Load( "./SG1000.png" ); break;
     case SYSTEM_MARKIII: //Mark III & Sega Master System I&II & Megadrive with power base converter
     case SYSTEM_SMS:
     case SYSTEM_GGMS:
     case SYSTEM_SMS2:
     case SYSTEM_PBC:
-        tempbgSurface = IMG_Load( "./SMS.png" ); break;
+        bgSurface = IMG_Load( "./SMS.png" ); break;
     case SYSTEM_GG:
-        tempbgSurface = IMG_Load( "./GG.png" ); break;
+        bgSurface = IMG_Load( "./GG.png" ); break;
     case SYSTEM_MD:
-        tempbgSurface = IMG_Load( "./MD.png" ); break;
+        bgSurface = IMG_Load( "./MD.png" ); break;
     case SYSTEM_MCD:
-        tempbgSurface = IMG_Load( "./MCD.png" ); break;
+        bgSurface = IMG_Load( "./MCD.png" ); break;
     default:
-        tempbgSurface = IMG_Load( "./MD.png" ); break;
+        bgSurface = IMG_Load( "./MD.png" ); break;
     }
-#ifdef SDL2
-//TODO skip this to allow compile for now
-#else
-    bgSurface = SDL_DisplayFormat( tempbgSurface );
-#endif
-    SDL_FreeSurface(tempbgSurface);
 
     /* Start menu loop */
     while(goto_menu)
@@ -1011,83 +966,83 @@ static void gcw0menu(void)
 
         /* Initialise surfaces */
         SDL_Surface *textSurface;
-        SDL_Surface *textSurfaceTime;
-        SDL_Surface *textSurfaceVersion;
-        SDL_Surface *MenuBackground;
+        SDL_Surface *menuBackground;
 
-        /* Blit the background image */
+        /* Blit the last emulation frame */
+        SDL_BlitSurface(gameSurface, NULL, sdl_video.surf_screen, NULL);
+
+        if (start_menu < 30)
+        {
+            /* Blit slice of emulation frame */
+            srect.x = drect.x = 0;
+            srect.w = drect.w = menuSurface->w;
+            srect.y = 0;
+            srect.h = start_menu * (menuSurface->h / 30);
+            drect.y = menuSurface->h - srect.h;
+            drect.h = srect.h;
+
+            SDL_BlitSurface(gameSurface, &srect, menuSurface, &drect);
+        } else
+            SDL_BlitSurface(gameSurface, NULL, menuSurface, NULL);
 #ifndef SDL2
         /* Fade background in slowly */
-        if(menu_fade < 255) menu_fade++;
+        if(menu_fade < 240) menu_fade += 5;
         SDL_SetAlpha(bgSurface, SDL_SRCALPHA, menu_fade);
 #endif
-        if(menu_fade < 255) SDL_BlitSurface(bgScreenshotZoomed, NULL, menuSurface, &bgScreenshotRect);
-        SDL_BlitSurface(bgSurface, NULL, menuSurface, NULL);
+        /* Blit the background image */
+        srect.w = menuSurface->w;
+        srect.h = menuSurface->h;
+        srect.x = (bgSurface->w - srect.w) / 2;
+        srect.y = (bgSurface->h - srect.h) / 2;
+        SDL_BlitSurface(bgSurface, &srect, menuSurface, NULL);
 
         /* Fill menu box */
-        SDL_Rect rect;
-        if (menustate == REMAP_OPTIONS)
-        {
-            MenuBackground = SDL_CreateRGBSurface(SDL_SWSURFACE, 320, 185, 32, 0, 0, 0, 0);
-            rect.x = 0;
-            rect.y = 35;
-            rect.w = 320;
-            rect.h = 185;
-        }
-        else
-        {
-            MenuBackground = SDL_CreateRGBSurface(SDL_SWSURFACE, 200, 185, 32, 0, 0, 0, 0);
-            rect.x = 60;
-            rect.y = 35;
-            rect.w = 200;
-            rect.h = 185;
-        }
-        SDL_FillRect(MenuBackground, 0, 0);
-#ifdef SDL2
-//TODO  skip this to allow compile for now
-#else
-if(menu_fade<205)
-        SDL_SetAlpha(MenuBackground, SDL_SRCALPHA, 255 - menu_fade);
-else
-        SDL_SetAlpha(MenuBackground, SDL_SRCALPHA, 50);
+        menuBackground = SDL_CreateRGBSurface(SDL_SWSURFACE,
+            (menuSurface->w <= 160 ? menuSurface->w : ((menuSurface->w + 160) / 2)),
+            (menuSurface->h <= 144 ? menuSurface->h : 185), BPP, 0, 0, 0, 0);
+        drect.x = (menuSurface->w - menuBackground->w) / 2;
+        drect.y = (menuBackground->h >= 185 ? ((menuSurface->h - 185) / 2) : 0);
+        drect.w = menuBackground->w;
+        drect.h = menuBackground->h;
+        SDL_FillRect(menuBackground, 0, 0);
+#ifndef SDL2
+        if(menu_fade < 205) SDL_SetAlpha(menuBackground, SDL_SRCALPHA, 255 - menu_fade);
+        else SDL_SetAlpha(menuBackground, SDL_SRCALPHA, 50);
 #endif
+        SDL_BlitSurface(menuBackground, NULL, menuSurface, &drect);
+        SDL_FreeSurface(menuBackground);
 
         /* Show title */
-        SDL_Rect destination;
-        destination.x = 70;
-        destination.y = 40;
-        destination.w = 100;
-        destination.h = 50;
-        textSurface = TTF_RenderText_Solid(ttffont, "Genesis Plus GX", text_color);
+        if(menuSurface->h > 12 * 12)
+        {
+            drect.x = menuSurface->w / 2 - 6 * 8;
+            drect.y = (menuSurface->h - 12 * 12) / 3;
+            drect.w = 100;
+            drect.h = 50;
+            textSurface = TTF_RenderText_Solid(ttffont, "Genesis Plus GX", text_color);
+            SDL_BlitSurface(textSurface, NULL, menuSurface, &drect);
+            SDL_FreeSurface(textSurface);
+        }
 
         /* Show time */
-        SDL_Rect destination2;
-        destination2.x = 320 - (19 * 6);
-        destination2.y = 0;
-        destination2.w = 100;
-        destination2.h = 50;
-        textSurfaceTime = TTF_RenderText_Solid(ttffont, c_time_string, text_color_dull);
-//    (void) printf("Current time is %s", c_time_string);
+        drect.x = menuSurface->w - (19 * 6);
+        drect.y = 0;
+        drect.w = 100;
+        drect.h = 50;
+        textSurface = TTF_RenderText_Solid(ttffont, c_time_string, text_color_dull);
+        SDL_BlitSurface(textSurface, NULL, menuSurface, &drect);
+        SDL_FreeSurface(textSurface);
 
         /* Show version */
-        SDL_Rect destination3;
-        destination3.x = 0;
-        destination3.y = 0;
-        destination3.w = 100;
-        destination3.h = 50;
-        textSurfaceVersion = TTF_RenderText_Solid(ttffont, "Build date " __DATE__, text_color_dull);
-
-        /* Blit background and title */
-        SDL_BlitSurface(MenuBackground,     NULL, menuSurface, &rect);
-        SDL_BlitSurface(textSurface,        NULL, menuSurface, &destination);
-        SDL_BlitSurface(textSurfaceTime,    NULL, menuSurface, &destination2);
-        SDL_BlitSurface(textSurfaceVersion, NULL, menuSurface, &destination3);
-
-        /* Free surfaces */
-        SDL_FreeSurface(MenuBackground);
-        SDL_FreeSurface(textSurface);
-        SDL_FreeSurface(textSurfaceTime);
-        SDL_FreeSurface(textSurfaceVersion);
+        if(menuSurface->w >= 43 * 6)
+        {
+            drect.x = drect.y = 0;
+            drect.w = 100;
+            drect.h = 50;
+            textSurface = TTF_RenderText_Solid(ttffont, "Build date " __DATE__, text_color_dull);
+            SDL_BlitSurface(textSurface, NULL, menuSurface, &drect);
+            SDL_FreeSurface(textSurface);
+        }
 
         switch(menustate)
         {
@@ -1096,15 +1051,15 @@ else
             int i;
             for(i = 0; i < sizeof(gcw0menu_mainlist)/sizeof(gcw0menu_mainlist[0]); i++)
             {
-                destination.x = 70;
-                destination.y = 70+(15*i);
-                destination.w = 100;
-                destination.h = 50;
+                drect.x = (menuSurface->w - 160) / 2;
+                drect.y = (menuSurface->h - 10 * 12) / 2 + (12*i);
+                drect.w = 100;
+                drect.h = 50;
                 if (i == selectedoption)
                     textSurface = TTF_RenderText_Solid(ttffont, gcw0menu_mainlist[i], selected_text_color);
                 else
                     textSurface = TTF_RenderText_Solid(ttffont, gcw0menu_mainlist[i], text_color);
-                SDL_BlitSurface(textSurface, NULL, menuSurface, &destination);
+                SDL_BlitSurface(textSurface, NULL, menuSurface, &drect);
                 SDL_FreeSurface(textSurface);
             }
             break;
@@ -1114,22 +1069,24 @@ else
             int i;
             for(i = 0; i < sizeof(gcw0menu_gfxlist)/sizeof(gcw0menu_gfxlist[0]); i++)
             {
-                destination.x = 70;
-                destination.y = 70 + (15 * i);
-                destination.w = 100;
-                destination.h = 50;
+                drect.x = (menuSurface->w - 160) / 2;
+                drect.y = (menuSurface->h - 10 * 12) / 2 + (12*i);
+                drect.w = 100;
+                drect.h = 50;
                 if ((i + 10) == selectedoption)
                     textSurface = TTF_RenderText_Solid(ttffont, gcw0menu_gfxlist[i], selected_text_color);
                 else
                     textSurface = TTF_RenderText_Solid(ttffont, gcw0menu_gfxlist[i], text_color);
-                SDL_BlitSurface(textSurface, NULL, menuSurface, &destination);
+                SDL_BlitSurface(textSurface, NULL, menuSurface, &drect);
                 SDL_FreeSurface(textSurface);
             }
             /* Display On/Off */
-            PRINTSETTING(210, 70 + (15* 1), 100, 50, gcw0menu_renderer[config.renderer]);         //Renderer
-            PRINTSETTING(210, 70 + (15* 2), 100, 50, gcw0menu_onofflist[config.gcw0_fullscreen]); //Scaling
-            PRINTSETTING(210, 70 + (15* 3), 100, 50, gcw0menu_onofflist[config.keepaspectratio]); //Aspect ratio
-            PRINTSETTING(210, 70 + (15* 4), 100, 50, gcw0menu_onofflist[config.gg_scanlines]);    //Scanlines
+            int tempX = drect.x;
+            int tempY = (menuSurface->h - 10 * 12) / 2;
+            PRINTSETTING(menuSurface->w - tempX, tempY + (12 * 1), gcw0menu_renderer[config.renderer]);         //Renderer
+            PRINTSETTING(menuSurface->w - tempX, tempY + (12 * 2), gcw0menu_onofflist[config.gcw0_fullscreen]); //Scaling
+            PRINTSETTING(menuSurface->w - tempX, tempY + (12 * 3), gcw0menu_onofflist[config.keepaspectratio]); //Aspect ratio
+            PRINTSETTING(menuSurface->w - tempX, tempY + (12 * 4), gcw0menu_onofflist[config.gg_scanlines]);    //Scanlines
             break;
         }
         case SOUND_OPTIONS:
@@ -1137,52 +1094,76 @@ else
             int i;
             for(i = 0; i < sizeof(gcw0menu_sndlist)/sizeof(gcw0menu_sndlist[0]); i++)
             {
-                destination.x = 70;
-                destination.y = 70 + (15 * i);
-                destination.w = 100;
-                destination.h = 50;
+                drect.x = (menuSurface->w - 160) / 2;
+                drect.y = (menuSurface->h - 10 * 12) / 2 + (12*i);
+                drect.w = 100;
+                drect.h = 50;
                 if ((i + 70) == selectedoption)
                     textSurface = TTF_RenderText_Solid(ttffont, gcw0menu_sndlist[i], selected_text_color);
                 else
                     textSurface = TTF_RenderText_Solid(ttffont, gcw0menu_sndlist[i], text_color);
-                SDL_BlitSurface(textSurface, NULL, menuSurface, &destination);
+                SDL_BlitSurface(textSurface, NULL, menuSurface, &drect);
                 SDL_FreeSurface(textSurface);
             }
+
             /* Display On/Off */
-            PRINTSETTING(210, 70 + (15* 1), 100, 50, gcw0menu_onofflist[config.use_sound]);       //Sound
-            PRINTSETTING(210, 70 + (15* 2), 100, 50, gcw0menu_onofflist[config.ym2413]);          //FM Sound (SMS)
-            PRINTSETTING(210, 70 + (15* 3), 100, 50, gcw0menu_onofflist[config.skip_prevention]); //Stop Skipping
+            int tempX = drect.x;
+            int tempY = (menuSurface->h - 10 * 12) / 2;
+            PRINTSETTING(menuSurface->w - tempX, tempY + (12 * 1), gcw0menu_onofflist[config.use_sound]);       //Sound
+            PRINTSETTING(menuSurface->w - tempX, tempY + (12 * 2), gcw0menu_onofflist[config.ym2413]);          //FM Sound (SMS)
+            PRINTSETTING(menuSurface->w - tempX, tempY + (12 * 3), gcw0menu_onofflist[config.skip_prevention]); //Stop Skipping
             break;
         }
         case REMAP_OPTIONS:
         {
-            sprintf(remap_text, "%s%25s", "GenPlus", "GCW-Zero");
-            destination.x = 30;
-            destination.y = 80;
-            destination.w = 100;
-            destination.h = 50;
+            sprintf(remap_text, "%s", "GenPlus");
+            drect.x = (menuSurface->w - 160) / 2;
+            drect.y = (menuSurface->h - 10 * 12) / 2 + 24;
+            drect.w = 100;
+            drect.h = 50;
             textSurface = TTF_RenderText_Solid(ttffont, remap_text, text_color);
-            SDL_BlitSurface(textSurface, NULL, menuSurface, &destination);
+            SDL_BlitSurface(textSurface, NULL, menuSurface, &drect);
             SDL_FreeSurface(textSurface);
-            int i;
-            for(i = 0; i < sizeof(gcw0menu_remapoptions)/sizeof(gcw0menu_remapoptions[0]); i++)
+            sprintf(remap_text, "%s", "GCW-Zero");
+            drect.x = (menuSurface->w + 160) / 2 - 6 * 8;
+            textSurface = TTF_RenderText_Solid(ttffont, remap_text, text_color);
+            SDL_BlitSurface(textSurface, NULL, menuSurface, &drect);
+            SDL_FreeSurface(textSurface);
+
+            int i = 0;
+            sprintf(remap_text, gcw0menu_remapoptions[i]);
+            drect.x = (menuSurface->w - 160) / 2;
+            drect.y = (menuSurface->h - 10 * 12) / 2;
+            drect.w = 100;
+            drect.h = 50;
+            if ((i + 20) == selectedoption)
+                textSurface = TTF_RenderText_Solid(ttffont, remap_text, selected_text_color);
+            else
+                textSurface = TTF_RenderText_Solid(ttffont, remap_text, text_color);
+            SDL_BlitSurface(textSurface, NULL, menuSurface, &drect);
+            SDL_FreeSurface(textSurface);
+
+            for(i = 1; i < sizeof(gcw0menu_remapoptions)/sizeof(gcw0menu_remapoptions[0]); i++)
             {
-                if (!i)
-                    sprintf(remap_text, gcw0menu_remapoptions[i]);  //for return option
-                else
-                    sprintf(remap_text, "%-5s                   %-7s", gcw0menu_remapoptions[i], gcw0_get_key_name(config.buttons[i - 1]));
-                destination.x = 30;
-                if (!i)
-                    destination.y = 60;
-                else
-                    destination.y = 80 + (15 * i);
-                destination.w = 100;
-                destination.h = 50;
+                sprintf(remap_text, gcw0menu_remapoptions[i]);
+                drect.x = (menuSurface->w - 160) / 2;
+                drect.y = (menuSurface->h - 10 * 12) / 2 + (12 * i) + 24;
+                drect.w = 100;
+                drect.h = 50;
                 if ((i + 20) == selectedoption)
                     textSurface = TTF_RenderText_Solid(ttffont, remap_text, selected_text_color);
                 else
                     textSurface = TTF_RenderText_Solid(ttffont, remap_text, text_color);
-                SDL_BlitSurface(textSurface, NULL, menuSurface, &destination);
+                SDL_BlitSurface(textSurface, NULL, menuSurface, &drect);
+                SDL_FreeSurface(textSurface);
+
+                sprintf(remap_text, gcw0_get_key_name(config.buttons[i - 1]));
+                drect.x = (menuSurface->w + 160) / 2 - 6 * 8;
+                if ((i + 20) == selectedoption)
+                    textSurface = TTF_RenderText_Solid(ttffont, remap_text, selected_text_color);
+                else
+                    textSurface = TTF_RenderText_Solid(ttffont, remap_text, text_color);
+                SDL_BlitSurface(textSurface, NULL, menuSurface, &drect);
                 SDL_FreeSurface(textSurface);
             }
             break;
@@ -1195,51 +1176,55 @@ else
             screenshot = SDL_LoadBMP(load_state_screenshot);
             if (screenshot)
             {
-                destination.x = (320 - screenshot->w) / 2;
-                destination.y = (240 - screenshot->h) / 2;
-                destination.w = 320;
-                destination.h = 240;
-                SDL_BlitSurface(screenshot, NULL, menuSurface, &destination);
+                drect.x = (menuSurface->w - screenshot->w) / 2;
+                drect.y = (menuSurface->h - screenshot->h) / 2;
+                drect.w = screenshot->w;
+                drect.h = screenshot->h;
+                SDL_BlitSurface(screenshot, NULL, menuSurface, &drect);
 
                 /* Fill menu box */
-                SDL_Surface *MenuBackground = SDL_CreateRGBSurface(SDL_SWSURFACE, 180, 185, BPP, 0, 0, 0, 0);
-                SDL_Rect rect;
-                rect.x = 60;
-                rect.y = 35;
-                rect.w = 180;
-                rect.h = 185;
-                SDL_FillRect(MenuBackground, 0, 0);
-#ifdef SDL2
-//TODO skip this to allow compile for now
-#else
-                SDL_SetAlpha(MenuBackground, SDL_SRCALPHA, 180);
+                menuBackground = SDL_CreateRGBSurface(SDL_SWSURFACE,
+                    (menuSurface->w <= 160 ? menuSurface->w : ((menuSurface->w + 160) / 2)),
+                    (menuSurface->h <= 144 ? menuSurface->h : 185), BPP, 0, 0, 0, 0);
+                drect.x = (menuSurface->w - menuBackground->w) / 2;
+                drect.y = (menuBackground->h >= 185 ? ((menuSurface->h - 185) / 2) : 0);
+                drect.w = menuBackground->w;
+                drect.h = menuBackground->h;
+                SDL_FillRect(menuBackground, 0, 0);
+#ifndef SDL2
+                SDL_SetAlpha(menuBackground, SDL_SRCALPHA, 180);
 #endif
-                SDL_BlitSurface(MenuBackground, NULL, menuSurface, &rect);
-                SDL_FreeSurface(MenuBackground);
+                SDL_BlitSurface(menuBackground, NULL, menuSurface, &drect);
+                SDL_FreeSurface(menuBackground);
             }
+
             /* Show title */
-            destination.x = 70;
-            destination.y = 40;
-            destination.w = 100;
-            destination.h = 50;
-            textSurface = TTF_RenderText_Solid(ttffont, "Genesis Plus GX", text_color);
-            SDL_BlitSurface(textSurface, NULL, menuSurface, &destination);
-            SDL_FreeSurface(textSurface);
+            if(menuSurface->h > 12 * 12)
+            {
+                drect.x = menuSurface->w / 2 - 6 * 8;
+                drect.y = (menuSurface->h - 12 * 12) / 3;
+                drect.w = 100;
+                drect.h = 50;
+                textSurface = TTF_RenderText_Solid(ttffont, "Genesis Plus GX", text_color);
+                SDL_BlitSurface(textSurface, NULL, menuSurface, &drect);
+                SDL_FreeSurface(textSurface);
+            }
 
             int i;
             for(i = 0; i < sizeof(gcw0menu_savestate)/sizeof(gcw0menu_savestate[0]); i++)
             {
-                destination.x = 70;
-                destination.y = 70 + (15 * i);
-                destination.w = 100;
-                destination.h = 50;
+                drect.x = (menuSurface->w - 160) / 2;
+                drect.y = (menuSurface->h - 10 * 12) / 2 + (12*i);
+                drect.w = 100;
+                drect.h = 50;
                 if ((i + 30) == selectedoption)
                     textSurface = TTF_RenderText_Solid(ttffont, gcw0menu_savestate[i], selected_text_color);
 	        else
                     textSurface = TTF_RenderText_Solid(ttffont, gcw0menu_savestate[i], text_color);
-                SDL_BlitSurface(textSurface, NULL, menuSurface, &destination);
+                SDL_BlitSurface(textSurface, NULL, menuSurface, &drect);
                 SDL_FreeSurface(textSurface);
             }
+            if (screenshot) SDL_FreeSurface(screenshot);
             savestate = 1;
         }
         case LOAD_STATE:
@@ -1253,54 +1238,56 @@ else
                 screenshot = SDL_LoadBMP(load_state_screenshot);
                 if (screenshot)
                 {
-                    destination.x = (320 - screenshot->w) / 2;
-                    destination.y = (240 - screenshot->h) / 2;
-                    destination.w = 320;
-                    destination.h = 240;
-                    SDL_BlitSurface(screenshot, NULL, menuSurface, &destination);
+                    drect.x = (menuSurface->w - screenshot->w) / 2;
+                    drect.y = (menuSurface->h - screenshot->h) / 2;
+                    drect.w = screenshot->w;
+                    drect.h = screenshot->h;
+                    SDL_BlitSurface(screenshot, NULL, menuSurface, &drect);
 
                     /* Fill menu box */
-                    SDL_Surface *MenuBackground = SDL_CreateRGBSurface(SDL_SWSURFACE, 180, 185, BPP, 0, 0, 0, 0);
-                    SDL_Rect rect;
-                    rect.x = 60;
-                    rect.y = 35;
-                    rect.w = 200;
-                    rect.h = 185;
-                    SDL_FillRect(MenuBackground, 0, 0);
-#ifdef SDL2
-//TODO skip this to allow compile for now
-#else
-                    SDL_SetAlpha(MenuBackground, SDL_SRCALPHA, 180);
+                    menuBackground = SDL_CreateRGBSurface(SDL_SWSURFACE,
+                        (menuSurface->w <= 160 ? menuSurface->w : ((menuSurface->w + 160) / 2)),
+                        (menuSurface->h <= 144 ? menuSurface->h : 185), BPP, 0, 0, 0, 0);
+                    drect.x = (menuSurface->w - menuBackground->w) / 2;
+                    drect.y = (menuBackground->h >= 185 ? ((menuSurface->h - 185) / 2) : 0);
+                    drect.w = menuBackground->w;
+                    drect.h = menuBackground->h;
+                    SDL_FillRect(menuBackground, 0, 0);
+#ifndef SDL2
+                    SDL_SetAlpha(menuBackground, SDL_SRCALPHA, 180);
 #endif
-                    SDL_BlitSurface(MenuBackground, NULL, menuSurface, &rect);
-                    SDL_FreeSurface(MenuBackground);
+                    SDL_BlitSurface(menuBackground, NULL, menuSurface, &drect);
+                    SDL_FreeSurface(menuBackground);
                 }
 
                 /* Show title */
-                destination.x = 70;
-                destination.y = 40;
-                destination.w = 100;
-                destination.h = 50;
-                textSurface = TTF_RenderText_Solid(ttffont, "Genesis Plus GX", text_color);
-                SDL_BlitSurface(textSurface, NULL, menuSurface, &destination);
-                SDL_FreeSurface(textSurface);
+                if(menuSurface->h > 12 * 12)
+                {
+                    drect.x = menuSurface->w / 2 - 6 * 8;
+                    drect.y = (menuSurface->h - 12 * 12) / 3;
+                    drect.w = 100;
+                    drect.h = 50;
+                    textSurface = TTF_RenderText_Solid(ttffont, "Genesis Plus GX", text_color);
+                    SDL_BlitSurface(textSurface, NULL, menuSurface, &drect);
+                    SDL_FreeSurface(textSurface);
+                }
+
                 int i;
                 for(i = 0; i < sizeof(gcw0menu_loadstate)/sizeof(gcw0menu_loadstate[0]); i++)
                 {
-                    destination.x = 70;
-                    destination.y = 70 + (15 * i);
-                    destination.w = 100;
-                    destination.h = 50;
+                    drect.x = (menuSurface->w - 160) / 2;
+                    drect.y = (menuSurface->h - 10 * 12) / 2 + (12*i);
+                    drect.w = 100;
+                    drect.h = 50;
                     if ((i + 40) == selectedoption)
 	                textSurface = TTF_RenderText_Solid(ttffont, gcw0menu_loadstate[i], selected_text_color);
 	            else
 	                textSurface = TTF_RenderText_Solid(ttffont, gcw0menu_loadstate[i], text_color);
-                    SDL_BlitSurface(textSurface, NULL, menuSurface, &destination);
+                    SDL_BlitSurface(textSurface, NULL, menuSurface, &drect);
                     SDL_FreeSurface(textSurface);
                 }
-            if (screenshot) SDL_FreeSurface(screenshot);
+                if (screenshot) SDL_FreeSurface(screenshot);
             }
-
             savestate = 0;
 #endif //!DINGOO
             break;
@@ -1310,37 +1297,40 @@ else
             int i;
             for(i = 0; i < sizeof(gcw0menu_misc)/sizeof(gcw0menu_misc[0]); i++)
             {
-                destination.x = 70;
-                destination.y = 70 + (15 * i);
-                destination.w = 100;
-                destination.h = 50;
+                drect.x = (menuSurface->w - 160) / 2;
+                drect.y = (menuSurface->h - 10 * 12) / 2 + (12 * i);
+                drect.w = 100;
+                drect.h = 50;
                 if ((i + 50) == selectedoption)
                     textSurface = TTF_RenderText_Solid(ttffont, gcw0menu_misc[i], selected_text_color);
                 else
                     textSurface = TTF_RenderText_Solid(ttffont, gcw0menu_misc[i], text_color);
-                SDL_BlitSurface(textSurface, NULL, menuSurface, &destination);
+                SDL_BlitSurface(textSurface, NULL, menuSurface, &drect);
                 SDL_FreeSurface(textSurface);
             }
             /* Display On/Off */
-            PRINTSETTING(210, 70 + (15* 1), 100, 50, gcw0menu_optimisations[config.optimisations]); //Optimisations
-            PRINTSETTING(210, 70 + (15* 2), 100, 50, gcw0menu_onofflist[config.sl_autoresume]);     //Save/load autoresume
-            PRINTSETTING(210, 70 + (15* 3), 100, 50, gcw0menu_onofflist[config.a_stick]);           //A-stick
-            PRINTSETTING(210, 70 + (15* 4), 100, 50, gcw0menu_deadzonelist[config.deadzone]);       //A-stick Sensitivity
-            PRINTSETTING(144, 70 + (15* 5), 100, 50, lock_on_desc[config.lock_on]);                 //Display Lock-on Types
-            PRINTSETTING(210, 70 + (15* 6), 100, 50, gcw0menu_numericlist[config.lightgun_speed]);  //Lightgun speed
+            int tempX = drect.x;
+            int tempY = (menuSurface->h - 10 * 12) / 2;
+            PRINTSETTING(menuSurface->w - tempX, tempY + (12 * 1), gcw0menu_optimisations[config.optimisations]); //Optimisations
+            PRINTSETTING(menuSurface->w - tempX, tempY + (12 * 2), gcw0menu_onofflist[config.sl_autoresume]);     //Save/load autoresume
+            PRINTSETTING(menuSurface->w - tempX, tempY + (12 * 3), gcw0menu_onofflist[config.a_stick]);           //A-stick
+            PRINTSETTING(menuSurface->w - tempX, tempY + (12 * 4), gcw0menu_deadzonelist[config.deadzone]);       //A-stick Sensitivity
+            PRINTSETTING(menuSurface->w - tempX, tempY + (12 * 5), lock_on_desc[config.lock_on]);                 //Display Lock-on Types
+            PRINTSETTING(menuSurface->w - tempX, tempY + (12 * 6), gcw0menu_numericlist[config.lightgun_speed]);  //Lightgun speed
 
             /* Lightgun Cursor */
-            destination.y = 70 + (15 * 7);
+            drect.x = menuSurface->w - tempX - 16;
+            drect.y = tempY + (12 * 7);
             SDL_Surface *lightgunSurface;
             lightgunSurface = IMG_Load(cursor[config.cursor]);
             static int lightgun_af_demo = 0;
-            SDL_Rect srect;
+
             srect.x = srect.y = 0;
             srect.w = srect.h = 15;
             if (lightgun_af_demo >= 10 && config.cursor != 0) srect.x = 15;
             lightgun_af_demo++;
             if (lightgun_af_demo == 20) lightgun_af_demo = 0;
-            SDL_BlitSurface(lightgunSurface, &srect, menuSurface, &destination);
+            SDL_BlitSurface(lightgunSurface, &srect, menuSurface, &drect);
             SDL_FreeSurface(lightgunSurface);
             break;
         }
@@ -1349,24 +1339,26 @@ else
             int i;
             for(i = 0; i < sizeof(gcw0menu_autofirelist)/sizeof(gcw0menu_autofirelist[0]); i++)
             {
-                destination.x = 70;
-                destination.y = 70 + (15 * i);
-                destination.w = 100;
-                destination.h = 50;
+                drect.x = (menuSurface->w - 160) / 2;
+                drect.y = (menuSurface->h - 10 * 12) / 2 + (12 * i);
+                drect.w = 100;
+                drect.h = 50;
                 if ((i + 60) == selectedoption)
                     textSurface = TTF_RenderText_Solid(ttffont, gcw0menu_autofirelist[i], selected_text_color);
                 else
                     textSurface = TTF_RenderText_Solid(ttffont, gcw0menu_autofirelist[i], text_color);
-                SDL_BlitSurface(textSurface, NULL, menuSurface, &destination);
+                SDL_BlitSurface(textSurface, NULL, menuSurface, &drect);
                 SDL_FreeSurface(textSurface);
             }
             /* Display On/Off */
-            PRINTSETTING(210, 70 + (15* 1), 100, 50, gcw0menu_onofflist[afA]); //A
-            PRINTSETTING(210, 70 + (15* 2), 100, 50, gcw0menu_onofflist[afB]); //B
-            PRINTSETTING(210, 70 + (15* 3), 100, 50, gcw0menu_onofflist[afC]); //C
-            PRINTSETTING(210, 70 + (15* 4), 100, 50, gcw0menu_onofflist[afX]); //X
-            PRINTSETTING(210, 70 + (15* 5), 100, 50, gcw0menu_onofflist[afY]); //Y
-            PRINTSETTING(210, 70 + (15* 6), 100, 50, gcw0menu_onofflist[afZ]); //Z
+            int tempX = drect.x;
+            int tempY = (menuSurface->h - 10 * 12) / 2;
+            PRINTSETTING(menuSurface->w - tempX, tempY + (12 * 1), gcw0menu_onofflist[afA]); //A
+            PRINTSETTING(menuSurface->w - tempX, tempY + (12 * 2), gcw0menu_onofflist[afB]); //B
+            PRINTSETTING(menuSurface->w - tempX, tempY + (12 * 3), gcw0menu_onofflist[afC]); //C
+            PRINTSETTING(menuSurface->w - tempX, tempY + (12 * 4), gcw0menu_onofflist[afX]); //X
+            PRINTSETTING(menuSurface->w - tempX, tempY + (12 * 5), gcw0menu_onofflist[afY]); //Y
+            PRINTSETTING(menuSurface->w - tempX, tempY + (12 * 6), gcw0menu_onofflist[afZ]); //Z
             break;
         }
 
@@ -1377,11 +1369,20 @@ else
         }
 
         /* Update display */
-        SDL_Rect dest;
-        dest.w = 320;
-        dest.h = 240;
-        dest.x = dest.y = 0;
-        SDL_BlitSurface(menuSurface, NULL, sdl_video.surf_screen, &dest);
+        if (start_menu < 30)
+        {
+            /* Blit slice of emulation frame */
+            srect.x = drect.x = 0;
+            srect.w = drect.w = menuSurface->w;
+            srect.y = menuSurface->h - start_menu * (menuSurface->h / 30);
+            srect.h = menuSurface->h - srect.y;
+            drect.y = 0;
+            drect.h = srect.h;
+
+            SDL_BlitSurface(menuSurface, &srect, sdl_video.surf_screen, &drect);
+            start_menu++;
+        } else
+            SDL_BlitSurface(menuSurface, NULL, sdl_video.surf_screen, NULL);
 #ifdef SDL2
         SDL_RenderPresent(renderer);
 #else
@@ -1389,9 +1390,7 @@ else
         else             SDL_UpdateRect(sdl_video.surf_screen, 0, 0, 0, 0);
 #endif
         /* Check for user input */
-#ifdef SDL2
-//TODO skip this to allow compile for now
-#else
+#ifndef SDL2
         SDL_EnableKeyRepeat(0, 0);
 #endif
         static int keyheld = 0;
@@ -1557,9 +1556,9 @@ else
                     else config.renderer ++;
                     config_save(); break;
                 case 12: //Scaling
-                    config.gcw0_fullscreen = !config.gcw0_fullscreen; config_save(); break;
+                    config.gcw0_fullscreen = !config.gcw0_fullscreen; config_save(); bitmap.viewport.changed = 1; break;
                 case 13: //Keep aspect ratio
-                    config.keepaspectratio = !config.keepaspectratio; config_save(); do_once = 1; break;
+                    config.keepaspectratio = !config.keepaspectratio; config_save(); do_once = bitmap.viewport.changed = 1; break;
                 case 14: //Scanlines (GG)
                     config.gg_scanlines = !config.gg_scanlines; config_save(); break;
                 case 20: //Back to main menu
@@ -1581,15 +1580,7 @@ else
                     /* Save BMP screenshot */
                     char save_state_screenshot[256];
                     sprintf(save_state_screenshot,"%s/%s.%d.bmp", get_save_directory(), rom_filename, selectedoption-30);
-                    char save_state_screenshot2[256];
-                    sprintf(save_state_screenshot2,"%s/%s.", get_save_directory(), rom_filename);
-                    FILE *savefile;
-                    if ((savefile = fopen(save_state_screenshot, "r")) != NULL)
-                    {
-                        fclose(savefile);
-                        remove(save_state_screenshot);
-                    }
-                    cp(save_state_screenshot, save_state_screenshot2);
+                    SDL_SaveBMP(gameSurface, save_state_screenshot);
                     if (config.sl_autoresume) menustate = goto_menu = selectedoption = MAINMENU;
                     break;
                 case 40: //Back to main menu
@@ -1662,82 +1653,107 @@ else
         }
     }//menu loop
 
+    /* Update display */
+    drect.x = drect.y = srect.x = 0;
+    drect.w = srect.w = menuSurface->w;
+    while(start_menu)
+    {
+        SDL_BlitSurface(gameSurface, NULL, sdl_video.surf_screen, NULL);
+        srect.h = start_menu-- * (menuSurface->h / 30);
+        srect.y = menuSurface->h - srect.h;
+        drect.h = srect.h;
+#ifndef SDL2
+        /* Fade background out slowly */
+        if(menu_fade) menu_fade -= 5;
+        SDL_SetAlpha(menuSurface, SDL_SRCALPHA, menu_fade);
+#endif
+        SDL_BlitSurface(menuSurface, &srect, sdl_video.surf_screen, &drect);
+#ifdef SDL2
+        SDL_RenderPresent(renderer);
+#else
+        if(renderer < 2) SDL_Flip      (sdl_video.surf_screen            );
+        else             SDL_UpdateRect(sdl_video.surf_screen, 0, 0, 0, 0);
+#endif
+    }
     menu_fade = 0;
     TTF_CloseFont (ttffont);
     SDL_FreeSurface(menuSurface);
     SDL_FreeSurface(bgSurface);
-    SDL_FreeSurface(bgScreenshotZoomed);
+    SDL_FreeSurface(gameSurface);
     SDL_PauseAudio(!config.use_sound);
 
-    if (config.gcw0_fullscreen)
+    if(bitmap.viewport.changed)
     {
-        if ( (system_hw == SYSTEM_MARKIII) || (system_hw == SYSTEM_SMS) || (system_hw == SYSTEM_SMS2) || (system_hw == SYSTEM_PBC) )
+        bitmap.viewport.changed = 1; //change screen res if required
+        if (config.gcw0_fullscreen)
         {
-            gcw0_w = sdl_video.drect.w;
-            gcw0_h = sdl_video.drect.h;
+            if ( (system_hw == SYSTEM_MARKIII) || (system_hw == SYSTEM_SMS) || (system_hw == SYSTEM_SMS2) || (system_hw == SYSTEM_PBC) )
+            {
+                gcw0_w = sdl_video.drect.w;
+                gcw0_h = sdl_video.drect.h;
 #ifdef SDL2
 #else
 #ifdef DINGOO
-            sdl_video.surf_screen  = SDL_SetVideoMode(256,gcw0_h, BPP, SDL_SWSURFACE                );
+                sdl_video.surf_screen  = SDL_SetVideoMode(256,gcw0_h, BPP, SDL_SWSURFACE                );
 #else
-            if     (config.renderer == 0) sdl_video.surf_screen  = SDL_SetVideoMode(256,gcw0_h, BPP, SDL_HWSURFACE | SDL_TRIPLEBUF);
-            else if(config.renderer == 1) sdl_video.surf_screen  = SDL_SetVideoMode(256,gcw0_h, BPP, SDL_HWSURFACE | SDL_DOUBLEBUF);
-            else if(config.renderer == 2) sdl_video.surf_screen  = SDL_SetVideoMode(256,gcw0_h, BPP, SDL_SWSURFACE                );
+                if     (config.renderer == 0) sdl_video.surf_screen  = SDL_SetVideoMode(256,gcw0_h, BPP, SDL_HWSURFACE | SDL_TRIPLEBUF);
+                else if(config.renderer == 1) sdl_video.surf_screen  = SDL_SetVideoMode(256,gcw0_h, BPP, SDL_HWSURFACE | SDL_DOUBLEBUF);
+                else if(config.renderer == 2) sdl_video.surf_screen  = SDL_SetVideoMode(256,gcw0_h, BPP, SDL_SWSURFACE                );
+#endif //DINGOO
+#endif
+            }
+            else
+            {
+                sdl_video.drect.w = sdl_video.srect.w;
+                sdl_video.drect.h = sdl_video.srect.h;
+                sdl_video.drect.y = 0;
+                sdl_video.drect.x = sdl_video.drect.y = 0;
+
+                gcw0_w = sdl_video.drect.w;
+                gcw0_h = sdl_video.drect.h;
+#ifdef SDL2
+#else
+#ifdef DINGOO
+                sdl_video.surf_screen  = SDL_SetVideoMode(256,gcw0_h, BPP, SDL_SWSURFACE                );
+#else
+                if     (config.renderer == 0) sdl_video.surf_screen  = SDL_SetVideoMode(gcw0_w,gcw0_h, BPP, SDL_HWSURFACE | SDL_TRIPLEBUF);
+                else if(config.renderer == 1) sdl_video.surf_screen  = SDL_SetVideoMode(gcw0_w,gcw0_h, BPP, SDL_HWSURFACE | SDL_DOUBLEBUF);
+                else if(config.renderer == 2) sdl_video.surf_screen  = SDL_SetVideoMode(gcw0_w,gcw0_h, BPP, SDL_SWSURFACE                );
+#endif //DINGOO
+#endif
+            }
+        } else
+        {
+#ifdef SDL2
+#else
+#ifdef DINGOO
+                sdl_video.surf_screen  = SDL_SetVideoMode(256,gcw0_h, BPP, SDL_SWSURFACE                );
+#else
+                if     (config.renderer == 0) sdl_video.surf_screen  = SDL_SetVideoMode(320,240, BPP, SDL_HWSURFACE | SDL_TRIPLEBUF);
+                else if(config.renderer == 1) sdl_video.surf_screen  = SDL_SetVideoMode(320,240, BPP, SDL_HWSURFACE | SDL_DOUBLEBUF);
+                else if(config.renderer == 2) sdl_video.surf_screen  = SDL_SetVideoMode(320,240, BPP, SDL_SWSURFACE                );
 #endif //DINGOO
 #endif
         }
-        else
-        {
-            sdl_video.drect.w = sdl_video.srect.w;
-            sdl_video.drect.h = sdl_video.srect.h;
-            sdl_video.drect.y = 0;
-            sdl_video.drect.x = sdl_video.drect.y = 0;
-
-            gcw0_w = sdl_video.drect.w;
-            gcw0_h = sdl_video.drect.h;
-
-#ifdef SDL2
-#else
-#ifdef DINGOO
-            sdl_video.surf_screen  = SDL_SetVideoMode(256,gcw0_h, BPP, SDL_SWSURFACE                );
-#else
-            if     (config.renderer == 0) sdl_video.surf_screen  = SDL_SetVideoMode(gcw0_w,gcw0_h, BPP, SDL_HWSURFACE | SDL_TRIPLEBUF);
-            else if(config.renderer == 1) sdl_video.surf_screen  = SDL_SetVideoMode(gcw0_w,gcw0_h, BPP, SDL_HWSURFACE | SDL_DOUBLEBUF);
-            else if(config.renderer == 2) sdl_video.surf_screen  = SDL_SetVideoMode(gcw0_w,gcw0_h, BPP, SDL_SWSURFACE                );
-#endif //DINGOO
-#endif
-        }
-    } else
-    {
-#ifdef SDL2
-#else
-#ifdef DINGOO
-            sdl_video.surf_screen  = SDL_SetVideoMode(256,gcw0_h, BPP, SDL_SWSURFACE                );
-#else
-            if     (config.renderer == 0) sdl_video.surf_screen  = SDL_SetVideoMode(320,240, BPP, SDL_HWSURFACE | SDL_TRIPLEBUF);
-            else if(config.renderer == 1) sdl_video.surf_screen  = SDL_SetVideoMode(320,240, BPP, SDL_HWSURFACE | SDL_DOUBLEBUF);
-            else if(config.renderer == 2) sdl_video.surf_screen  = SDL_SetVideoMode(320,240, BPP, SDL_SWSURFACE                );
-#endif //DINGOO
-#endif
-    }
     /* Clear screen */
 #ifdef SDL2
-    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 0);
-    int i;
-    for(i = 0; i < 3; i++)
-    {
-        SDL_RenderClear(renderer);
-        SDL_RenderPresent(renderer);
-    }
+        SDL_SetRenderDrawColor(renderer, 0, 0, 0, 0);
+        int i;
+        for(i = 0; i < 3; i++)
+        {
+            SDL_RenderClear(renderer);
+            SDL_RenderPresent(renderer);
+        }
 #else
-    int i;
-    for(i = 0; i < 3; i++)
-    {
-        SDL_FillRect(sdl_video.surf_screen, 0, 0);
-        if(config.renderer < 2) SDL_Flip      (sdl_video.surf_screen            );
-        else                    SDL_UpdateRect(sdl_video.surf_screen, 0, 0, 0, 0);
-    }
+        int i;
+        for(i = 0; i < 3; i++)
+        {
+            SDL_FillRect(sdl_video.surf_screen, 0, 0);
+            if(config.renderer < 2) SDL_Flip      (sdl_video.surf_screen            );
+            else                    SDL_UpdateRect(sdl_video.surf_screen, 0, 0, 0, 0);
+        }
 #endif
+    }
 
     /* Reset semaphore to avoid temporary speedups on menu exit */
     if (post)
@@ -1748,6 +1764,64 @@ else
         }
         while(--post);
     }
+}
+
+void quicksaveState()
+{
+    /* Save to quicksave slot */
+    char save_state_file[256];
+    sprintf(save_state_file,"%s/%s.gp1", get_save_directory(), rom_filename);
+        FILE *f = fopen(save_state_file,"wb");
+        if (f)
+        {
+            uint8 buf[STATE_SIZE];
+            int len = state_save(buf);
+            fwrite(&buf, len, 1, f);
+            fclose(f);
+        }
+
+    /* Save BMP screenshot */
+    char save_state_screenshot[256];
+    sprintf(save_state_screenshot,"%s/%s.1.bmp", get_save_directory(), rom_filename);
+    SDL_Surface* screenshot;
+    if (!config.gcw0_fullscreen)
+    {
+        screenshot = SDL_CreateRGBSurface(SDL_SWSURFACE, sdl_video.srect.w, sdl_video.srect.h, BPP, 0, 0, 0, 0);
+        SDL_Rect temp;
+        temp.x = temp.y = 0;
+        temp.w = sdl_video.srect.w;
+        temp.h = sdl_video.srect.h;
+        SDL_BlitSurface(sdl_video.surf_bitmap, &temp, screenshot, &temp);
+        SDL_SaveBMP(screenshot, save_state_screenshot);
+        SDL_FreeSurface(screenshot);
+    }
+    else
+    {
+        screenshot = SDL_CreateRGBSurface(SDL_SWSURFACE, gcw0_w, gcw0_h, BPP, 0, 0, 0, 0);
+        SDL_Rect temp;
+        temp.x = temp.y = 0;
+        temp.w = gcw0_w;
+        temp.h = gcw0_h;
+        SDL_BlitSurface(sdl_video.surf_bitmap, &temp, screenshot, &temp);
+        SDL_SaveBMP(screenshot, save_state_screenshot);
+        SDL_FreeSurface(screenshot);
+    }
+}
+
+void quickloadState(void)
+{
+    /* Load quicksave slot */
+    char save_state_file[256];
+    sprintf(save_state_file,"%s/%s.gp1", get_save_directory(), rom_filename );
+    FILE *f = fopen(save_state_file,"rb");
+    if (f)
+    {
+        uint8 buf[STATE_SIZE];
+        fread(&buf, STATE_SIZE, 1, f);
+        state_load(buf);
+        fclose(f);
+    }
+//TODO add on screen message
 }
 
 int sdl_input_update(void)
@@ -1845,7 +1919,7 @@ int sdl_input_update(void)
         /* Range is [0;256], 128 being middle position */
         input.analog[joynum][0] = x * 256 / VIDEO_WIDTH;
 
-        /* Button I -> 0 0 0 0 0 0 0 I*/
+        /* Button I ->0 0 0 0 0 0 I*/
         if (state & SDL_BUTTON_LMASK) input.pad[joynum] |= INPUT_B;
 
         break;
@@ -2022,100 +2096,16 @@ int sdl_input_update(void)
         {
             /* Activate menu flag */
             goto_menu = 1;
-
-//TODO      FIXME Create screenshot now 
-//          This is not good practice as it shortens the SD card life
-//          but I cannot figure out how to do it from within the menu loop :(
-            if (!config.gcw0_fullscreen)
-            {
-                char save_state_screenshot[256];
-                sprintf(save_state_screenshot,"%s/%s.", get_save_directory(), rom_filename);
-                SDL_Surface* save_screenshot;
-                save_screenshot = SDL_CreateRGBSurface(SDL_SWSURFACE, sdl_video.srect.w, sdl_video.srect.h, BPP, 0, 0, 0, 0);
-                SDL_Rect temp;
-                temp.x = temp.y = 0;
-                temp.w = sdl_video.srect.w;
-                temp.h = sdl_video.srect.h;
-
-                SDL_BlitSurface(sdl_video.surf_bitmap, &temp, save_screenshot, &temp);
-                SDL_SaveBMP(save_screenshot, save_state_screenshot);
-                SDL_FreeSurface(save_screenshot);
-            }
-            else
-            {
-                char save_state_screenshot[256];
-                sprintf(save_state_screenshot,"%s/%s.", get_save_directory(), rom_filename);
-                SDL_Surface* save_screenshot;
-                save_screenshot = SDL_CreateRGBSurface(SDL_SWSURFACE, gcw0_w, gcw0_h, BPP, 0, 0, 0, 0);
-                SDL_Rect temp;
-                temp.x = temp.y = 0;
-                temp.w = gcw0_w;
-                temp.h = gcw0_h;
-
-                SDL_BlitSurface(sdl_video.surf_bitmap, &temp, save_screenshot, &temp);
-                SDL_SaveBMP(save_screenshot, save_state_screenshot);
-                SDL_FreeSurface(save_screenshot);
-            }
         }
         if (keystate[SDLK_ESCAPE] && keystate[SDLK_TAB])
         {
-            /* Save to quicksave slot */
-            char save_state_file[256];
-            sprintf(save_state_file,"%s/%s.gp1", get_save_directory(), rom_filename);
-                FILE *f = fopen(save_state_file,"wb");
-                if (f)
-                {
-                    uint8 buf[STATE_SIZE];
-                    int len = state_save(buf);
-                    fwrite(&buf, len, 1, f);
-                    fclose(f);
-                }
-            /* Save BMP screenshot */
-            char save_state_screenshot[256];
-            sprintf(save_state_screenshot,"%s/%s.1.bmp", get_save_directory(), rom_filename);
-            SDL_Surface* screenshot;
-            if (!config.gcw0_fullscreen)
-            {
-                screenshot = SDL_CreateRGBSurface(SDL_SWSURFACE, sdl_video.srect.w, sdl_video.srect.h, BPP, 0, 0, 0, 0);
-                SDL_Rect temp;
-                temp.x = temp.y = 0;
-                temp.w = sdl_video.srect.w;
-                temp.h = sdl_video.srect.h;
-
-                SDL_BlitSurface(sdl_video.surf_bitmap, &temp, screenshot, &temp);
-                SDL_SaveBMP(screenshot, save_state_screenshot);
-                SDL_FreeSurface(screenshot);
-            }
-            else
-            {
-                screenshot = SDL_CreateRGBSurface(SDL_SWSURFACE, gcw0_w, gcw0_h, BPP, 0, 0, 0, 0);
-                SDL_Rect temp;
-                temp.x = temp.y = 0;
-                temp.w = gcw0_w;
-                temp.h = gcw0_h;
-
-                SDL_BlitSurface(sdl_video.surf_bitmap, &temp, screenshot, &temp);
-                SDL_SaveBMP(screenshot, save_state_screenshot);
-                SDL_FreeSurface(screenshot);
-            }
-
+            quicksaveState();
             SDL_Delay(250);
         }
         if (keystate[SDLK_ESCAPE] && keystate[SDLK_BACKSPACE])
         {
-            /* Load quicksave slot */
-            char save_state_file[256];
-            sprintf(save_state_file,"%s/%s.gp1", get_save_directory(), rom_filename );
-            FILE *f = fopen(save_state_file,"rb");
-            if (f)
-            {
-                uint8 buf[STATE_SIZE];
-                fread(&buf, STATE_SIZE, 1, f);
-                state_load(buf);
-                fclose(f);
-            }
+            quickloadState();
             SDL_Delay(250);
-
         }
 
         /* A-stick support */
@@ -2520,7 +2510,6 @@ while(i  < 239)
                     do
                     {
                         SDL_SemWait(sdl_sync.sem_sync);
-//                        --post;
                     }
                     while(--post);
                 }
