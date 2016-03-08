@@ -15,7 +15,6 @@
 #include <SDL_ttf.h>
 #ifndef DINGOO
 #include <SDL_image.h>
-#include <SDL_rotozoom.h>
 #endif
 #include <stdio.h>
 #include <stdlib.h>
@@ -52,10 +51,11 @@
 
 unsigned int joynum = 0;
 uint fullscreen = 1; /* SDL_FULLSCREEN */
+uint8  clearSoundBuf  = 0;
 uint8  do_once        = 1;
 uint32 gcw0_w         = 320;
 uint32 gcw0_h         = 240;
-uint8  goto_menu       = 0;
+uint8  goto_menu      = 0;
 uint8  show_lightgun  = 0;
 uint8  virtua_racing  = 0;
 uint   post           = 0;
@@ -114,7 +114,6 @@ static void sdl_sound_update(int enabled)
         SDL_LockAudio();
         out = (short*)sdl_sound.current_pos;
 
-
         unsigned int n = (size+15)/16;
         switch (size % 16) {
         case 0: do { {*out++ = soundframe[i++];*out++ = soundframe[i++];}
@@ -145,7 +144,11 @@ static void sdl_sound_update(int enabled)
 static void sdl_sound_callback(void *userdata, Uint8 *stream, int len)
 {
     unsigned int ces = sdl_sound.current_emulated_samples;
-
+    if(clearSoundBuf)
+    {
+        clearSoundBuf--;
+        memset(stream, 0, len);
+    } else
     if (ces < len)
     {
         if(config.optimisations && !goto_menu)
@@ -411,7 +414,6 @@ static void viewport_size_changed(void)
         sdl_video.drect.y = (VIDEO_HEIGHT - sdl_video.drect.h) / 2;
 
         /* clear destination surface */
-      //We're triple buffering so do some blank screen flips to stop any flickering
 #ifdef SDL2
         SDL_SetRenderDrawColor(renderer, 0, 0, 0, 0);
         SDL_RenderPresent(renderer);
@@ -461,7 +463,7 @@ static void sdl_video_update()
 {
     sdl_render_frame();
 
-    /* viewport size changed */
+    /* Viewport size changed */
     viewport_size_changed();
 
     /* IPU scaling for gg/sms roms */
@@ -541,7 +543,7 @@ static void sdl_video_update()
 
     if (!frameskip || skipval )
     {
-      if(frame_progress == FRAME_GEN) //at least one pixel has changed so we need to blit and flip.
+      if(frame_progress == FRAME_GEN)
       {
         {
           SDL_BlitSurface(sdl_video.surf_bitmap, &sdl_video.srect, sdl_video.surf_screen, &sdl_video.drect);
@@ -581,7 +583,7 @@ static void sdl_video_update()
                 SDL_FillRect(sdl_video.surf_screen, &srect, SDL_MapRGB(sdl_video.surf_screen->format, 0, 0, 0));
             }
         }
-        /* get mouse coordinates (absolute values) */
+        /* Get mouse coordinates (absolute values) */
         int x,y;
         SDL_GetMouseState(&x,&y);
 
@@ -784,8 +786,8 @@ static void shutdown(void)
     error_shutdown();
 
     sdl_sound_close();
-//    sdl_video_close();
-//    sdl_sync_close();
+    sdl_video_close();
+    sdl_sync_close();
     SDL_Quit();
 }
 
@@ -801,65 +803,6 @@ void gcw0_savestate(int slot)
         fwrite(&buf, len, 1, f);
         fclose(f);
     }
-}
-
-int cp(const char *to, const char *from) //from stackexchange.com user 'caf'
-{
-    int fd_to, fd_from;
-    char buf[4096];
-    ssize_t nread;
-    int saved_errno;
-
-    fd_from = open(from, O_RDONLY);
-    if (fd_from < 0)
-        return -1;
-
-    fd_to = open(to, O_WRONLY | O_CREAT | O_EXCL, 0666);
-    if (fd_to < 0)
-        goto out_error;
-
-    while (nread = read(fd_from, buf, sizeof buf), nread > 0)
-    {
-        char *out_ptr = buf;
-        ssize_t nwritten;
-
-        do {
-            nwritten = write(fd_to, out_ptr, nread);
-
-            if (nwritten >= 0)
-            {
-                nread -= nwritten;
-                out_ptr += nwritten;
-            }
-            else if (errno != EINTR)
-            {
-                goto out_error;
-            }
-        } while (nread > 0);
-    }
-
-    if (nread == 0)
-    {
-        if (close(fd_to) < 0)
-        {
-            fd_to = -1;
-            goto out_error;
-        }
-        close(fd_from);
-
-        /* Success! */
-        return 0;
-    }
-
-  out_error:
-    saved_errno = errno;
-
-    close(fd_from);
-    if (fd_to >= 0)
-        close(fd_to);
-
-    errno = saved_errno;
-    return -1;
 }
 
 void gcw0_loadstate(int slot)
@@ -884,6 +827,7 @@ static void gcw0menu(void)
     static int menustate = MAINMENU;
     static int menu_fade = 0;
     static int start_menu = 0;
+    static int resizeScreen = 0;
     static int renderer;
     SDL_Rect srect;
     SDL_Rect drect;
@@ -1484,7 +1428,7 @@ static void gcw0menu(void)
                 else if (selectedoption == 58              ) selectedoption = MISC_OPTIONS;
                 else if (selectedoption == 67              ) selectedoption = AUTOFIRE_OPTIONS;
                 else if (selectedoption == 74              ) selectedoption = SOUND_OPTIONS;
-                SDL_Delay(100);
+                if (start_menu >= 30) SDL_Delay(100);
     	    }
             else if (keystate2[SDLK_UP])
             {
@@ -1498,7 +1442,7 @@ static void gcw0menu(void)
                 else if (selectedoption ==  AUTOFIRE_OPTIONS) selectedoption = 67; //autofire menu
                 else if (selectedoption ==  SOUND_OPTIONS   ) selectedoption = 74; //sound menu
                 selectedoption--;
-                SDL_Delay(100);
+                if (start_menu >= 30) SDL_Delay(100);
             }
 	    else if (keystate2[SDLK_LALT] && menustate != REMAP_OPTIONS)
             {
@@ -1556,9 +1500,9 @@ static void gcw0menu(void)
                     else config.renderer ++;
                     config_save(); break;
                 case 12: //Scaling
-                    config.gcw0_fullscreen = !config.gcw0_fullscreen; config_save(); bitmap.viewport.changed = 1; break;
+                    config.gcw0_fullscreen = !config.gcw0_fullscreen; config_save(); resizeScreen = 1; break;
                 case 13: //Keep aspect ratio
-                    config.keepaspectratio = !config.keepaspectratio; config_save(); do_once = bitmap.viewport.changed = 1; break;
+                    config.keepaspectratio = !config.keepaspectratio; config_save(); do_once = resizeScreen = 1; break;
                 case 14: //Scanlines (GG)
                     config.gg_scanlines = !config.gg_scanlines; config_save(); break;
                 case 20: //Back to main menu
@@ -1675,15 +1619,16 @@ static void gcw0menu(void)
         else             SDL_UpdateRect(sdl_video.surf_screen, 0, 0, 0, 0);
 #endif
     }
+    clearSoundBuf = 2;
     menu_fade = 0;
     TTF_CloseFont (ttffont);
     SDL_FreeSurface(menuSurface);
     SDL_FreeSurface(bgSurface);
     SDL_FreeSurface(gameSurface);
-    SDL_PauseAudio(!config.use_sound);
 
-    if(bitmap.viewport.changed)
+    if(resizeScreen)
     {
+        resizeScreen--;
         bitmap.viewport.changed = 1; //change screen res if required
         if (config.gcw0_fullscreen)
         {
@@ -1735,7 +1680,9 @@ static void gcw0menu(void)
 #endif //DINGOO
 #endif
         }
+
     /* Clear screen */
+
 #ifdef SDL2
         SDL_SetRenderDrawColor(renderer, 0, 0, 0, 0);
         int i;
@@ -1764,7 +1711,11 @@ static void gcw0menu(void)
         }
         while(--post);
     }
+
+    SDL_PauseAudio(!config.use_sound);
+
 }
+
 
 void quicksaveState()
 {
@@ -1806,22 +1757,6 @@ void quicksaveState()
         SDL_SaveBMP(screenshot, save_state_screenshot);
         SDL_FreeSurface(screenshot);
     }
-}
-
-void quickloadState(void)
-{
-    /* Load quicksave slot */
-    char save_state_file[256];
-    sprintf(save_state_file,"%s/%s.gp1", get_save_directory(), rom_filename );
-    FILE *f = fopen(save_state_file,"rb");
-    if (f)
-    {
-        uint8 buf[STATE_SIZE];
-        fread(&buf, STATE_SIZE, 1, f);
-        state_load(buf);
-        fclose(f);
-    }
-//TODO add on screen message
 }
 
 int sdl_input_update(void)
@@ -2099,13 +2034,17 @@ int sdl_input_update(void)
         }
         if (keystate[SDLK_ESCAPE] && keystate[SDLK_TAB])
         {
+            clearSoundBuf = 2;
+            SDL_PauseAudio(1);
             quicksaveState();
-            SDL_Delay(250);
+            SDL_PauseAudio(!config.use_sound);
         }
         if (keystate[SDLK_ESCAPE] && keystate[SDLK_BACKSPACE])
         {
-            quickloadState();
-            SDL_Delay(250);
+            clearSoundBuf = 2;
+            SDL_PauseAudio(1);
+            gcw0_loadstate(1);
+            SDL_PauseAudio(!config.use_sound);
         }
 
         /* A-stick support */
@@ -2176,7 +2115,7 @@ int sdl_input_update(void)
         /* Mirror the D-pad controls */
         if (config.a_stick)
         {
-            unsigned int deadzone = config.deadzone * 5000;
+            int deadzone = config.deadzone * 5000;
             MoveLeft = MoveRight = MoveUp = MoveDown = 0;
 
             if (x_move < -deadzone) MoveLeft  = 1;
