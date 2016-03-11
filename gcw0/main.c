@@ -822,7 +822,6 @@ void gcw0_loadstate(int slot)
 static void gcw0menu(void)
 {
     SDL_PauseAudio(1);
-
     enum {MAINMENU = 0, GRAPHICS_OPTIONS = 10, REMAP_OPTIONS = 20, SAVE_STATE = 30, LOAD_STATE = 40, MISC_OPTIONS = 50, AUTOFIRE_OPTIONS = 60, SOUND_OPTIONS = 70};
     static int menustate = MAINMENU;
     static int menu_fade = 0;
@@ -848,6 +847,9 @@ static void gcw0menu(void)
     const char *gcw0menu_loadstate[10]=    { "Back to main menu", "Load state 1 (Quickload)", "Load state 2", "Load state 3", "Load state 4", "Load state 5", "Load state 6", "Load state 7", "Load state 8", "Load state 9" };
     const char *gcw0menu_misc[8]=          { "Back to main menu", "Optimisations (MCD/VR)", "Resume on Save/Load", "A-stick", "A-stick deadzone", "Lock-on(MD)", "Lightgun speed", "Lightgun Cursor" };
     const char *lock_on_desc[4]=           { "Off", "Game Genie", "Action Replay", " Sonic&Knuckles" };
+
+    /* Save current configuration settings */
+    save_current_config();
 
     /* Setup fonts */
     TTF_Init();
@@ -1027,10 +1029,10 @@ static void gcw0menu(void)
             /* Display On/Off */
             int tempX = drect.x;
             int tempY = (menuSurface->h - 10 * 12) / 2;
-            PRINTSETTING(menuSurface->w - tempX, tempY + (12 * 1), gcw0menu_renderer[config.renderer]);         //Renderer
-            PRINTSETTING(menuSurface->w - tempX, tempY + (12 * 2), gcw0menu_onofflist[config.gcw0_fullscreen]); //Scaling
-            PRINTSETTING(menuSurface->w - tempX, tempY + (12 * 3), gcw0menu_onofflist[config.keepaspectratio]); //Aspect ratio
-            PRINTSETTING(menuSurface->w - tempX, tempY + (12 * 4), gcw0menu_onofflist[config.gg_scanlines]);    //Scanlines
+            PRINTSETTING(menuSurface->w - tempX, tempY + (12 * 1), gcw0menu_renderer[configTemp.renderer]);         //Renderer
+            PRINTSETTING(menuSurface->w - tempX, tempY + (12 * 2), gcw0menu_onofflist[configTemp.gcw0_fullscreen]); //Scaling
+            PRINTSETTING(menuSurface->w - tempX, tempY + (12 * 3), gcw0menu_onofflist[configTemp.keepaspectratio]); //Aspect ratio
+            PRINTSETTING(menuSurface->w - tempX, tempY + (12 * 4), gcw0menu_onofflist[configTemp.gg_scanlines]);    //Scanlines
             break;
         }
         case SOUND_OPTIONS:
@@ -1053,9 +1055,9 @@ static void gcw0menu(void)
             /* Display On/Off */
             int tempX = drect.x;
             int tempY = (menuSurface->h - 10 * 12) / 2;
-            PRINTSETTING(menuSurface->w - tempX, tempY + (12 * 1), gcw0menu_onofflist[config.use_sound]);       //Sound
-            PRINTSETTING(menuSurface->w - tempX, tempY + (12 * 2), gcw0menu_onofflist[config.ym2413]);          //FM Sound (SMS)
-            PRINTSETTING(menuSurface->w - tempX, tempY + (12 * 3), gcw0menu_onofflist[config.skip_prevention]); //Stop Skipping
+            PRINTSETTING(menuSurface->w - tempX, tempY + (12 * 1), gcw0menu_onofflist[configTemp.use_sound]);       //Sound
+            PRINTSETTING(menuSurface->w - tempX, tempY + (12 * 2), gcw0menu_onofflist[configTemp.ym2413]);          //FM Sound (SMS)
+            PRINTSETTING(menuSurface->w - tempX, tempY + (12 * 3), gcw0menu_onofflist[configTemp.skip_prevention]); //Stop Skipping
             break;
         }
         case REMAP_OPTIONS:
@@ -1101,7 +1103,7 @@ static void gcw0menu(void)
                 SDL_BlitSurface(textSurface, NULL, menuSurface, &drect);
                 SDL_FreeSurface(textSurface);
 
-                sprintf(remap_text, gcw0_get_key_name(config.buttons[i - 1]));
+                sprintf(remap_text, gcw0_get_key_name(configTemp.buttons[i - 1]));
                 drect.x = (menuSurface->w + 160) / 2 - 6 * 8;
                 if ((i + 20) == selectedoption)
                     textSurface = TTF_RenderText_Solid(ttffont, remap_text, selected_text_color);
@@ -1255,23 +1257,23 @@ static void gcw0menu(void)
             /* Display On/Off */
             int tempX = drect.x;
             int tempY = (menuSurface->h - 10 * 12) / 2;
-            PRINTSETTING(menuSurface->w - tempX, tempY + (12 * 1), gcw0menu_optimisations[config.optimisations]); //Optimisations
-            PRINTSETTING(menuSurface->w - tempX, tempY + (12 * 2), gcw0menu_onofflist[config.sl_autoresume]);     //Save/load autoresume
-            PRINTSETTING(menuSurface->w - tempX, tempY + (12 * 3), gcw0menu_onofflist[config.a_stick]);           //A-stick
-            PRINTSETTING(menuSurface->w - tempX, tempY + (12 * 4), gcw0menu_deadzonelist[config.deadzone]);       //A-stick Sensitivity
-            PRINTSETTING(menuSurface->w - tempX, tempY + (12 * 5), lock_on_desc[config.lock_on]);                 //Display Lock-on Types
-            PRINTSETTING(menuSurface->w - tempX, tempY + (12 * 6), gcw0menu_numericlist[config.lightgun_speed]);  //Lightgun speed
+            PRINTSETTING(menuSurface->w - tempX, tempY + (12 * 1), gcw0menu_optimisations[configTemp.optimisations]); //Optimisations
+            PRINTSETTING(menuSurface->w - tempX, tempY + (12 * 2), gcw0menu_onofflist[configTemp.sl_autoresume]);     //Save/load autoresume
+            PRINTSETTING(menuSurface->w - tempX, tempY + (12 * 3), gcw0menu_onofflist[configTemp.a_stick]);           //A-stick
+            PRINTSETTING(menuSurface->w - tempX, tempY + (12 * 4), gcw0menu_deadzonelist[configTemp.deadzone]);       //A-stick Sensitivity
+            PRINTSETTING(menuSurface->w - tempX, tempY + (12 * 5), lock_on_desc[configTemp.lock_on]);                 //Display Lock-on Types
+            PRINTSETTING(menuSurface->w - tempX, tempY + (12 * 6), gcw0menu_numericlist[configTemp.lightgun_speed]);  //Lightgun speed
 
             /* Lightgun Cursor */
             drect.x = menuSurface->w - tempX - 16;
             drect.y = tempY + (12 * 7);
             SDL_Surface *lightgunSurface;
-            lightgunSurface = IMG_Load(cursor[config.cursor]);
+            lightgunSurface = IMG_Load(cursor[configTemp.cursor]);
             static int lightgun_af_demo = 0;
 
             srect.x = srect.y = 0;
             srect.w = srect.h = 15;
-            if (lightgun_af_demo >= 10 && config.cursor != 0) srect.x = 15;
+            if (lightgun_af_demo >= 10 && configTemp.cursor != 0) srect.x = 15;
             lightgun_af_demo++;
             if (lightgun_af_demo == 20) lightgun_af_demo = 0;
             SDL_BlitSurface(lightgunSurface, &srect, menuSurface, &drect);
@@ -1394,24 +1396,24 @@ static void gcw0menu(void)
                         switch(selectedoption)
                         {
                         case 21:;//button a remap
-                            config.buttons[A]     = (pressed_key==SDLK_ESCAPE)? 0: pressed_key; break;
+                            configTemp.buttons[A]     = (pressed_key==SDLK_ESCAPE)? 0: pressed_key; break;
                         case 22:;//button b remap
-                            config.buttons[B]     = (pressed_key==SDLK_ESCAPE)? 0: pressed_key; break;
+                            configTemp.buttons[B]     = (pressed_key==SDLK_ESCAPE)? 0: pressed_key; break;
                         case 23:;//button c remap
-                            config.buttons[C]     = (pressed_key==SDLK_ESCAPE)? 0: pressed_key; break;
+                            configTemp.buttons[C]     = (pressed_key==SDLK_ESCAPE)? 0: pressed_key; break;
                         case 24:;//button x remap
-                            config.buttons[X]     = (pressed_key==SDLK_ESCAPE)? 0: pressed_key; break;
+                            configTemp.buttons[X]     = (pressed_key==SDLK_ESCAPE)? 0: pressed_key; break;
                         case 25:;//button y remap
-                            config.buttons[Y]     = (pressed_key==SDLK_ESCAPE)? 0: pressed_key; break;
+                            configTemp.buttons[Y]     = (pressed_key==SDLK_ESCAPE)? 0: pressed_key; break;
                         case 26:;//button z remap
-                            config.buttons[Z]     = (pressed_key==SDLK_ESCAPE)? 0: pressed_key; break;
+                            configTemp.buttons[Z]     = (pressed_key==SDLK_ESCAPE)? 0: pressed_key; break;
                         case 27:;//button start remap
-                            config.buttons[START] = (pressed_key==SDLK_ESCAPE)? 0: pressed_key; break;
+                            configTemp.buttons[START] = (pressed_key==SDLK_ESCAPE)? 0: pressed_key; break;
                         case 28:;//button mode remap
-                            config.buttons[MODE]  = pressed_key;                                break;
+                            configTemp.buttons[MODE]  = pressed_key;                                break;
                         }
                         SDL_Delay(130);
-                        config_save();
+//                        config_save();
                     }
                 }
             } //remap menu
@@ -1492,19 +1494,19 @@ static void gcw0menu(void)
                 case 8: //Reset
                     goto_menu = selectedoption = MAINMENU; system_reset(); break;
                 case 9: //Quit
-                    exit(0); break;
+                    config_save(); exit(0); break;
                 case 10: //Back to main menu
                     menustate = MAINMENU; selectedoption = 4; break;
                 case 11: //Renderer
-                    if (config.renderer >= sizeof(gcw0menu_renderer) / sizeof(gcw0menu_renderer[0]) - 1) config.renderer = 0;
-                    else config.renderer ++;
-                    config_save(); break;
+                    if (configTemp.renderer >= sizeof(gcw0menu_renderer) / sizeof(gcw0menu_renderer[0]) - 1) configTemp.renderer = 0;
+                    else configTemp.renderer ++;
+                    break;
                 case 12: //Scaling
-                    config.gcw0_fullscreen = !config.gcw0_fullscreen; config_save(); resizeScreen = 1; break;
+                    configTemp.gcw0_fullscreen = !configTemp.gcw0_fullscreen; resizeScreen = 1; break;
                 case 13: //Keep aspect ratio
-                    config.keepaspectratio = !config.keepaspectratio; config_save(); do_once = resizeScreen = 1; break;
+                    configTemp.keepaspectratio = !configTemp.keepaspectratio; do_once = resizeScreen = 1; break;
                 case 14: //Scanlines (GG)
-                    config.gg_scanlines = !config.gg_scanlines; config_save(); break;
+                    configTemp.gg_scanlines = !configTemp.gg_scanlines; break;
                 case 20: //Back to main menu
                     selectedoption = 6; break;
                 case 30: //Back to main menu
@@ -1525,7 +1527,7 @@ static void gcw0menu(void)
                     char save_state_screenshot[256];
                     sprintf(save_state_screenshot,"%s/%s.%d.bmp", get_save_directory(), rom_filename, selectedoption-30);
                     SDL_SaveBMP(gameSurface, save_state_screenshot);
-                    if (config.sl_autoresume) menustate = goto_menu = selectedoption = MAINMENU;
+                    if (configTemp.sl_autoresume) menustate = goto_menu = selectedoption = MAINMENU;
                     break;
                 case 40: //Back to main menu
                     menustate = MAINMENU; selectedoption = 3; break;
@@ -1540,34 +1542,34 @@ static void gcw0menu(void)
                 case 49:;//Load state 1-9
                     SDL_Delay(120);
                     gcw0_loadstate(selectedoption - 40);
-                    if (config.sl_autoresume) menustate = goto_menu = selectedoption = MAINMENU;
+                    if (configTemp.sl_autoresume) menustate = goto_menu = selectedoption = MAINMENU;
                     break;
                 case 50: //return to main menu
                     menustate = MAINMENU; selectedoption = 7; break;
                 case 51: //Optimisations
-                    if(config.optimisations >= sizeof(gcw0menu_optimisations) / sizeof(gcw0menu_optimisations[0]) - 1) config.optimisations = 0;
-                    else config.optimisations ++;
-                    config_save(); break;
+                    if(configTemp.optimisations >= sizeof(gcw0menu_optimisations) / sizeof(gcw0menu_optimisations[0]) - 1) configTemp.optimisations = 0;
+                    else configTemp.optimisations ++;
+                    break;
                 case 52: //toggle auto resume when save/loading
-                    config.sl_autoresume = !config.sl_autoresume; config_save(); break;
+                    configTemp.sl_autoresume = !configTemp.sl_autoresume; break;
                 case 53: //toggle A-Stick
-                    config.a_stick = !config.a_stick; config_save(); break;
+                    configTemp.a_stick = !configTemp.a_stick; break;
                 case 54: //toggle A-Stick deadzone
-                    if(config.deadzone >= sizeof(gcw0menu_deadzonelist) / sizeof(gcw0menu_deadzonelist[0]) - 1) config.deadzone = 0;
-                    else config.deadzone++;
-                    config_save(); break;
+                    if(configTemp.deadzone >= sizeof(gcw0menu_deadzonelist) / sizeof(gcw0menu_deadzonelist[0]) - 1) configTemp.deadzone = 0;
+                    else configTemp.deadzone++;
+                    break;
                 case 55: //toggle or change lock-on device
-                    if(config.lock_on >= sizeof(lock_on_desc) / sizeof(lock_on_desc[0]) - 1) config.lock_on = 0;
-                    else config.lock_on++;
-                    config_save(); break;
+                    if(configTemp.lock_on >= sizeof(lock_on_desc) / sizeof(lock_on_desc[0]) - 1) configTemp.lock_on = 0;
+                    else configTemp.lock_on++;
+                    break;
                 case 56: //Lightgun speed
-                    if(config.lightgun_speed >= sizeof(gcw0menu_numericlist) / sizeof(gcw0menu_numericlist[0]) - 1) config.lightgun_speed = 1;
-                    else config.lightgun_speed++;
-                    config_save(); break;
+                    if(configTemp.lightgun_speed >= sizeof(gcw0menu_numericlist) / sizeof(gcw0menu_numericlist[0]) - 1) configTemp.lightgun_speed = 1;
+                    else configTemp.lightgun_speed++;
+                    break;
                 case 57: //Change lightgun cursor
-                    if(config.cursor >= sizeof(cursor) / sizeof(cursor[0]) - 1) config.cursor = 0;
-                    else config.cursor++;
-                    config_save(); break;
+                    if(configTemp.cursor >= sizeof(cursor) / sizeof(cursor[0]) - 1) configTemp.cursor = 0;
+                    else configTemp.cursor++;
+                    break;
                 case 60: //return to main menu
                     menustate = MAINMENU; selectedoption = 1; break;
                 case 61: //Toggle autofire for button A
@@ -1585,17 +1587,20 @@ static void gcw0menu(void)
                 case 70: //return to main menu
                     menustate = MAINMENU; selectedoption = 5; break;
                 case 71: //Toggle sound on/off
-                    config.use_sound = !config.use_sound; config_save(); break;
+                    configTemp.use_sound = !configTemp.use_sound; break;
                 case 72: //Toggle high quality FM for SMS
-                    config.ym2413 = !config.ym2413; config_save(); break;
+                    configTemp.ym2413 = !configTemp.ym2413; break;
                 case 73: //Stop skipping
-                    config.skip_prevention = !config.skip_prevention; config_save(); break;
+                    configTemp.skip_prevention = !configTemp.skip_prevention; break;
                 default: //this should never happen
 	            break;
                 }
             }
         }
     }//menu loop
+
+    /* Save configuration */
+    config_save();
 
     /* Update display */
     drect.x = drect.y = srect.x = 0;
@@ -2043,6 +2048,7 @@ int sdl_input_update(void)
         {
             clearSoundBuf = 2;
             SDL_PauseAudio(1);
+            SDL_Delay(100);
             gcw0_loadstate(1);
             SDL_PauseAudio(!config.use_sound);
         }
